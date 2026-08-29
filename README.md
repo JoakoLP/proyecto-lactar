@@ -21,41 +21,33 @@ Link al repositorio previo al comienzo del desarrollo del proyecto.
 **Proyecto Lactar** es un sistema informático diseñado para digitalizar y centralizar la gestión operativa y comercial de una fábrica de quesos. Su eje central es el seguimiento de la producción por tina y la trazabilidad por lotes, reemplazando el uso de registros manuales y planillas dispersas para optimizar la toma de decisiones y el control de inventario.
 
 ## 🛠️ Stack Tecnológico
-* **Frontend:** React (JavaScript)
+* **Frontend & Backend:** Next.js (App Router) - JavaScript
 * **Estilos:** Tailwind CSS
-* **Backend:** Node.js + Express
-* **Base de Datos:** PostgreSQL
+* **Base de Datos:** PostgreSQL (alojada en Supabase)
+* **Hosting/Despliegue:** Vercel
 * **Control de Versiones:** Git / GitHub
 
-## 📂 Estructura del Proyecto (Frontend)
-El frontend utiliza App Router (Next.js) con una arquitectura modular enfocada en la reutilización de componentes y la separación de responsabilidades:
+## 📂 Estructura del Proyecto (Monorepo Fullstack)
+El proyecto utiliza la arquitectura unificada de Next.js, donde el frontend y el backend conviven en el mismo ecosistema:
 
 ```text
-src/
-├── app/                  # App Router (Next.js)
-│   ├── layout.js         # Layout raíz global
-│   ├── page.js           # Página principal (Dashboard / Panel)
-│   ├── login/
-│   │   └── page.js       # Ruta /login
-│   ├── produccion/
-│   │   └── page.js       # Ruta /produccion
-│   ├── stock/
-│   │   └── page.js       # Ruta /stock
-│   ├── pedidos/
-│   │   └── page.js       # Ruta /pedidos
-│   ├── clientes/
-│   │   └── page.js       # Ruta /clientes
-│   ├── cobranzas/
-│   │   └── page.js       # Ruta /cobranzas
-│   ├── reportes/
-│   │   └── page.js       # Ruta /reportes
-│   └── usuarios/
-│       └── page.js       # Ruta /usuarios
-├── components/           # Componentes comunes (Button, Modal, Table, Input, Badges)
-├── services/             # Integración y llamadas a la API REST (Node.js)
-├── hooks/                # Custom hooks de React
-└── utils/                # Utilidades y funciones auxiliares
-
+proyecto-lactar/
+├── docs/                 # Documentación, actividades, prototipos
+├── AGENTS.md             # Instrucciones de contexto para IAs
+├── README.md             # Documentación principal
+├── public/               # Assets estáticos
+├── src/
+│   ├── app/              # App Router (Next.js)
+│   │   ├── api/          # ⚙️ BACKEND: Endpoints y lógica de servidor (Route Handlers)
+│   │   ├── (auth)/       # 💻 FRONTEND: Layout y vistas de autenticación
+│   │   └── (dashboard)/  # 💻 FRONTEND: Layout principal y vistas del sistema
+│   ├── components/       # Componentes UI reutilizables
+│   ├── hooks/            # Custom hooks de React
+│   ├── services/         # Funciones para consumir la API interna o Supabase
+│   └── utils/            # Utilidades compartidas
+├── .env.local            # Variables de entorno (Supabase keys, etc.)
+├── tailwind.config.js    # Configuración de estilos y colores
+└── package.json
 ```
 
 
@@ -70,8 +62,14 @@ El desarrollo está dividido estratégicamente para asegurar la integración cru
 | **Moritan Victoria** | 👥 Clientes + Cobranzas | Validaciones y manejo de errores | 0% |
 | **Takara Joaquin** | 📊 Usuarios + Reportes + Importación | Routing, permisos y layouts | 0% |
 
+## 🚀 Fases de Desarrollo
+El proyecto requiere una integración constante siguiendo este orden lógico:
 
+1. **Fase 1 — Base (Trabajo conjunto):** Setup de Next.js, Supabase, Router, Layout, Componentes comunes, Login y Manejo de roles.
+2. **Fase 2 — Módulos Base:** Producción y Clientes.
+3. **Fase 3 — Nivel Intermedio:** Trazabilidad, Stock, Cobranzas y Usuarios.
+4. **Fase 4 — Nivel Comercial:** Pedidos + Ventas. Requiere que Producción y Stock funcionen previamente.
+5. **Fase 5 — Cierre:** Reportes + Importación Excel. Consumen los datos generados por el resto de los módulos.
 
-
-
-
+## ♿ Requisitos Transversales
+* **Accesibilidad (RNF18-RNF21):** El sistema debe apuntar al nivel de conformidad WCAG 2.2 AA. Es obligatorio garantizar la compatibilidad con lectores de pantalla, navegación fluida por teclado, soporte para modificación de tamaño de fuente y alertas visuales/escritas claras.

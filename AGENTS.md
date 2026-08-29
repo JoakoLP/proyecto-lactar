@@ -5,7 +5,8 @@ Este documento centraliza la lógica de negocio, arquitectura, reglas de diseño
 ---
 
 ## 1. Reglas Generales de Arquitectura y UI
-* **Tecnologías Principales:** React (JavaScript), Tailwind CSS, Node.js/Express, PostgreSQL.
+* **Tecnologías Principales:** Next.js (App Router, JavaScript), Tailwind CSS, Supabase (PostgreSQL), Vercel.
+* **Prototipo de Referencia:** Los agentes deben tomar como referencia visual, de clases Tailwind y de comportamiento el prototipo funcional ubicado estrictamente en `.\docs\prototipo\prototipo.html`.
 * **Diseño Visual (Tailwind):** Mantener la paleta de colores institucional del prototipo:
     ```javascript
     theme: {
@@ -20,7 +21,8 @@ Este documento centraliza la lógica de negocio, arquitectura, reglas de diseño
       }
     }
     ```
-* **Estructura de Archivos:** Usar App Router (`src/app/[modulo]/page.js`). Componentes reutilizables en `src/components/`.
+* **Estructura de Archivos (Monorepo Fullstack):** 
+  Todo el proyecto convive en el ecosistema Next.js. El Frontend usa Route Groups `(auth)` y `(dashboard)` dentro de `src/app/`. El Backend se implementa usando Route Handlers en `src/app/api/`. Se debe interactuar con la base de datos a través del cliente de Supabase (`@supabase/supabase-js`).
 * **Accesibilidad:** Obligatorio cumplir con WCAG 2.2 AA (Navegación por Tab, aria-labels, contraste).
 
 ---
@@ -43,23 +45,27 @@ Para evitar alucinaciones, la IA debe utilizar estrictamente estos valores prede
 * **Regla de Cálculo de Rinde:** Se calcula al cerrar el lote: `(kilosObtenidos / litrosLeche) * 100`.
 * **Validación de Capacidad:** Los `litrosLeche` ingresados deben ser > 0 y <= 5800.
 * **Código de Lote:** Autogenerado por el sistema en el inicio de la producción.
+* **Endpoints Internos:** `/api/tinas`, `/api/produccion`, `/api/lotes`.
 
 ### 📦 Módulo 2: Stock, Pedidos y Ventas (Responsable: Veliz Condori Ruben)
 * **Stock:** Es una vista calculada, NO se ingresa manualmente. El stock disponible equivale a la suma de `kilos_disponibles` de los lotes en estado *Disponible*.
 * **Ventas vs. Pedidos:** Los quesos se venden **por kilo**, no solo por unidad. El pedido reserva los kilos; la venta los descuenta definitivamente de los lotes (transacción en BD).
+* **Endpoints Internos:** `/api/tinas`, `/api/produccion`, `/api/lotes`.
 
 ### 👥 Módulo 3: Clientes y Cobranzas (Responsable: Moritán Victoria)
 * **Clientes:** Validación estricta de CUIT único. CUIT y teléfono se manejan como valores numéricos en la validación base.
 * **Cobranzas:** Se registran con un `monto_informado`. El Administrador realiza la conciliación ingresando el `monto_validado`. Si hay diferencia con el saldo de la factura, el sistema calcula automáticamente si es pago parcial o saldo a favor.
+* **Endpoints Internos:** `/api/clientes`, `/api/cobranzas`.
 
 ### 📊 Módulo 4: Usuarios, Reportes e Importación (Responsable: Takara Joaquín)
 * **Seguridad:** Contraseñas hasheadas. Bloqueo de eliminación de usuarios (se usa baja lógica: `estado = Inactivo`).
 * **Importación:** Archivos `.xlsx` o `.csv` deben ser parseados y validados contra el esquema de BD.
 * **Reportes:** Exportación disponible a PDF (ej. usando `jspdf` o `react-pdf`) y Excel.
+* **Endpoints Internos:** `/api/usuarios`, `/api/reportes`, `/api/importar`.
 
 ---
 
-## 4. Estructura de Base de Datos (PostgreSQL)
+## 4. Estructura de Base de Datos (PostgreSQL en Supabase)
 El siguiente esquema detalla las entidades principales y sus atributos clave exactos para la Base de Datos. Los asistentes de código deben basar sus consultas y modelos (ORMs/Queries) en esta estructura:
 
 ### 👤 Entidades de Seguridad y Directorio

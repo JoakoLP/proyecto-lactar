@@ -1,4 +1,10 @@
 @import "tailwindcss";
+@config "../../tailwind.config.js";
+
+/* Opcional: Clases de utilidad para transiciones suaves que estaban en tu prototipo */
+.vista-seccion {
+  @apply transition-opacity duration-300 ease-in-out;
+}
 
 :root {
   --background: #ffffff;
