@@ -60,7 +60,7 @@ El desarrollo está dividido estratégicamente para asegurar la integración cru
 | Responsable             | Módulo                               | Descripción                      | Realización |
 | ----------------------- | ------------------------------------ | -------------------------------- | ----------- |
 | **Esperanza Franco**    | 🏭 Producción + Trazabilidad         | Componentes de formularios       | 30%         |
-| **Veliz Condori Ruben** | 📦 Stock + Pedidos/Ventas            | Tablas y filtros interactivos    | 30%         |
+| **Veliz Condori Ruben** | 📦 Stock + Pedidos/Ventas            | Tablas y filtros interactivos    | 55%         |
 | **Moritan Victoria**    | 👥 Clientes + Cobranzas              | Validaciones y manejo de errores | 0%          |
 | **Takara Joaquin**      | 📊 Usuarios + Reportes + Importación | Routing, permisos y layouts      | 0%          |
 
