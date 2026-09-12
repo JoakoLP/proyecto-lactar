@@ -110,8 +110,8 @@ export default function CobranzasPage() {
 
             <div className="grid border-y border-slate-200 bg-white sm:grid-cols-4">
                 <SummaryItem label="Pendientes" value={pendingCount} detail="por validar" />
-                <SummaryItem label="Validadas" value={validatedCount} detail="completadas" />
-                <SummaryItem label="Saldo a favor" value={favorCount} detail="casos" />
+                <SummaryItem label="Validadas" value={validatedCount} detail={validatedCount === 1 ? "validada" : "validadas"} />
+                <SummaryItem label="Saldo a favor" value={favorCount} detail={favorCount === 1 ? "caso" : "casos"} />
                 <SummaryItem label="Monto pendiente" value={formatCurrency(totalPending)} detail="informado" />
             </div>
 
