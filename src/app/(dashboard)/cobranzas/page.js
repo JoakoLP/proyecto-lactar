@@ -3,6 +3,8 @@
 import { useMemo, useState } from 'react';
 import CobranzaTable from '@/components/cobranzas/CobranzaTable';
 import ValidarCobranzaForm from '@/components/cobranzas/ValidarCobranzaForm';
+import SummaryCard, { formatCurrency } from '@/components/ui/SummaryCard';
+import { ClockIcon, CheckIcon, WalletIcon, CashIcon, CloseIcon } from '@/components/ui/Icons';
 
 const paymentMethods = ['Transferencia', 'Efectivo', 'Cheque', 'Otro medio habilitado'];
 const collectionStatuses = ['Pendiente de validación', 'Validada', 'Parcial', 'Con saldo a favor', 'No identificada', 'Rechazada'];
@@ -109,10 +111,10 @@ export default function CobranzasPage() {
             )}
 
             <div className="grid border-y border-slate-200 bg-white sm:grid-cols-4">
-                <SummaryItem label="Pendientes" value={pendingCount} detail="por validar" />
-                <SummaryItem label="Validadas" value={validatedCount} detail={validatedCount === 1 ? "validada" : "validadas"} />
-                <SummaryItem label="Saldo a favor" value={favorCount} detail={favorCount === 1 ? "caso" : "casos"} />
-                <SummaryItem label="Monto pendiente" value={formatCurrency(totalPending)} detail="informado" />
+                <SummaryCard label="Pendientes" value={pendingCount} detail="por validar" icon={<ClockIcon />} color="amber" />
+                <SummaryCard label="Validadas" value={validatedCount} detail={validatedCount === 1 ? "validada" : "validadas"} icon={<CheckIcon />} color="green" />
+                <SummaryCard label="Saldo a favor" value={favorCount} detail={favorCount === 1 ? "caso" : "casos"} icon={<WalletIcon />} color="violet" />
+                <SummaryCard label="Monto pendiente" value={formatCurrency(totalPending)} detail="informado" icon={<CashIcon />} color="blue" />
             </div>
 
             {favorCount > 0 && (
@@ -201,10 +203,3 @@ export default function CobranzasPage() {
         </div>
     );
 }
-
-function SummaryItem({ label, value, detail }) {
-    return <div className="border-b border-slate-200 px-5 py-4 last:border-0 sm:border-r sm:last:border-r-0"><p className="text-xs font-semibold text-slate-500">{label}</p><div className="mt-1 flex items-baseline gap-2"><p className="text-xl font-bold text-slate-950">{value}</p><p className="text-xs text-slate-400">{detail}</p></div></div>;
-}
-
-function formatCurrency(value) { return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(value); }
-function CloseIcon() { return <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18 18 6M6 6l12 12" /></svg>; }
