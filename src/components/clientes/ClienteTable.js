@@ -2,7 +2,7 @@
 
 import StatusBadge from './ClienteStatusBadge';
 
-export default function ClienteTable({ clients, onEdit }) {
+export default function ClienteTable({ clients, onEdit, onDelete }) {
     if (!clients.length) return <div className="px-6 py-16 text-center text-sm text-slate-500">No se encontraron clientes con esos filtros.</div>;
 
     return (
@@ -16,7 +16,12 @@ export default function ClienteTable({ clients, onEdit }) {
                         <td className="px-6 py-4"><p className="text-slate-700">{client.telefono || 'Sin teléfono'}</p><p className="mt-1 text-xs text-slate-400">{client.email || 'Sin correo'}</p></td>
                         <td className={`px-6 py-4 text-right font-bold ${client.saldo < 0 ? 'text-red-600' : client.saldo > 0 ? 'text-emerald-600' : 'text-slate-700'}`}>{formatCurrency(client.saldo)}</td>
                         <td className="px-6 py-4"><StatusBadge status={client.estado} /></td>
-                        <td className="px-6 py-4 text-right"><button onClick={() => onEdit(client)} className="rounded-lg px-3 py-2 text-xs font-bold text-blue-700 opacity-80 hover:bg-blue-100 hover:opacity-100">Editar</button></td>
+                        <td className="px-6 py-4 text-right">
+                            <div className="flex justify-end gap-2">
+                                <button onClick={() => onEdit(client)} className="rounded-lg px-3 py-2 text-xs font-bold text-blue-700 opacity-80 hover:bg-blue-100 hover:opacity-100">Editar</button>
+                                <button onClick={() => onDelete(client.id)} className="rounded-lg px-3 py-2 text-xs font-bold text-red-700 opacity-80 hover:bg-red-100 hover:opacity-100">Eliminar</button>
+                            </div>
+                        </td>
                     </tr>)}
                 </tbody>
             </table>
