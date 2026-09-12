@@ -68,24 +68,31 @@ export default function ClientesPage() {
                 <div className="flex flex-col gap-4 border-b border-slate-200 p-5 lg:flex-row lg:items-center lg:justify-between">
                     <div><h3 className="font-bold text-slate-950">Directorio de clientes</h3><p className="mt-1 text-xs text-slate-500">{filteredClients.length} resultados visibles</p></div>
                     <div className="flex flex-col gap-3 sm:flex-row">
-                        <label className="relative block"><span className="sr-only">Buscar cliente</span><SearchIcon /><input value={search} onChange={(event) => setSearch(event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 sm:w-64" placeholder="Buscar por nombre o CUIT" /></label>
-                        <select value={filter} onChange={(event) => setFilter(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"><option>Todos</option><option>Activo</option><option>Inactivo</option></select>
+                        <label className="relative block">
+                            <span className="sr-only">Buscar cliente</span>
+                            <SearchIcon />
+                            <input aria-label="Buscar cliente" value={search} onChange={(event) => setSearch(event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 sm:w-64" placeholder="Buscar por nombre o CUIT" />
+                        </label>
+                        <label className="block">
+                            <span className="sr-only">Filtrar clientes por estado</span>
+                            <select aria-label="Filtrar clientes por estado" value={filter} onChange={(event) => setFilter(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"><option>Todos</option><option>Activo</option><option>Inactivo</option></select>
+                        </label>
                     </div>
                 </div>
                 <ClienteTable clients={filteredClients} onEdit={openEdit} onDelete={deleteClient} />
             </section>
 
-            {isFormOpen && <div className="fixed inset-0 z-30 flex justify-end bg-slate-950/30 backdrop-blur-sm" role="dialog" aria-modal="true"><aside className="h-full w-full max-w-md overflow-y-auto bg-white p-6 shadow-2xl"><ClienteForm client={editingClient} clients={clients} onCancel={() => setIsFormOpen(false)} onSave={saveClient} /></aside></div>}
+            {isFormOpen && <div className="fixed inset-0 z-30 flex justify-end bg-slate-950/30 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="cliente-form-title"><aside className="h-full w-full max-w-md overflow-y-auto bg-white p-6 shadow-2xl"><ClienteForm client={editingClient} clients={clients} onCancel={() => setIsFormOpen(false)} onSave={saveClient} /></aside></div>}
 
             {clientToDelete && (
-                <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/45 backdrop-blur-sm" role="dialog" aria-modal="true">
+                <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/45 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-client-title">
                     <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
                         <div className="flex items-start justify-between gap-4">
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-red-600">Confirmación</p>
-                                <h3 className="mt-2 text-xl font-bold text-slate-950">Eliminar cliente</h3>
+                                <h3 id="delete-client-title" className="mt-2 text-xl font-bold text-slate-950">Eliminar cliente</h3>
                             </div>
-                            <button type="button" onClick={() => setClientToDelete(null)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Cerrar confirmación"><CloseIcon /></button>
+                            <button type="button" onClick={() => setClientToDelete(null)} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-200" aria-label="Cerrar confirmación"><CloseIcon /></button>
                         </div>
 
                         <p className="mt-4 text-sm leading-6 text-slate-600">
@@ -93,8 +100,8 @@ export default function ClientesPage() {
                         </p>
 
                         <div className="mt-6 flex gap-3">
-                            <button type="button" onClick={() => setClientToDelete(null)} className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancelar</button>
-                            <button type="button" onClick={confirmDeleteClient} className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-red-600/20 hover:bg-red-700">Eliminar</button>
+                            <button type="button" onClick={() => setClientToDelete(null)} className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-200">Cancelar</button>
+                            <button type="button" onClick={confirmDeleteClient} className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-red-600/20 transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-200">Eliminar</button>
                         </div>
                     </div>
                 </div>
