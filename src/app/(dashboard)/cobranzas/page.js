@@ -94,16 +94,16 @@ export default function CobranzasPage() {
                     <p className="mt-1 text-sm text-slate-500">Revisión y conciliación de pagos informados.</p>
                 </div>
                 <div className="flex flex-wrap gap-3">
-                    <label className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
-                        <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
+                    <label className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-within:ring-4 focus-within:ring-blue-100">
+                        <input aria-label="Importar cobros desde Excel" type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
                         Importar Excel
                     </label>
-                    <button type="button" onClick={() => setIsCreateOpen(true)} className="inline-flex items-center justify-center rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800">+ Nueva cobranza</button>
+                    <button type="button" onClick={() => setIsCreateOpen(true)} className="inline-flex items-center justify-center rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200">+ Nueva cobranza</button>
                 </div>
             </header>
 
             {importedFileName && (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                <div aria-live="polite" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
                     Archivo importado: <span className="font-semibold">{importedFileName}</span>
                 </div>
             )}
@@ -124,72 +124,75 @@ export default function CobranzasPage() {
             <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div className="flex flex-col gap-4 border-b border-slate-200 p-5 sm:flex-row sm:items-center sm:justify-between">
                     <div><h3 className="font-bold text-slate-950">Validación de cobranzas</h3><p className="mt-1 text-xs text-slate-500">{filteredCollections.length} resultados visibles</p></div>
-                    <select value={filter} onChange={(event) => setFilter(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"><option>Todos</option><option>Pendiente de validación</option><option>Validada</option><option>Parcial</option><option>Con saldo a favor</option><option>No identificada</option><option>Rechazada</option></select>
+                    <label className="block">
+                        <span className="sr-only">Filtrar cobranzas por estado</span>
+                        <select aria-label="Filtrar cobranzas por estado" value={filter} onChange={(event) => setFilter(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"><option>Todos</option><option>Pendiente de validación</option><option>Validada</option><option>Parcial</option><option>Con saldo a favor</option><option>No identificada</option><option>Rechazada</option></select>
+                    </label>
                 </div>
                 <CobranzaTable collections={filteredCollections} onValidate={setSelectedCollection} />
             </section>
 
-            {selectedCollection && <div className="fixed inset-0 z-30 flex justify-end bg-slate-950/30 backdrop-blur-sm" role="dialog" aria-modal="true"><aside className="h-full w-full max-w-md overflow-y-auto bg-white p-6 shadow-2xl"><ValidarCobranzaForm collection={selectedCollection} onCancel={() => setSelectedCollection(null)} onSave={saveValidation} /></aside></div>}
+            {selectedCollection && <div className="fixed inset-0 z-30 flex justify-end bg-slate-950/30 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="cobranza-form-title"><aside className="h-full w-full max-w-md overflow-y-auto bg-white p-6 shadow-2xl"><ValidarCobranzaForm collection={selectedCollection} onCancel={() => setSelectedCollection(null)} onSave={saveValidation} /></aside></div>}
 
             {isCreateOpen && (
-                <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm" role="dialog" aria-modal="true">
+                <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="new-cobranza-title">
                     <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl">
                         <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Registro</p>
-                                <h3 className="mt-1 text-xl font-bold text-slate-950">Nueva cobranza</h3>
+                                <h3 id="new-cobranza-title" className="mt-1 text-xl font-bold text-slate-950">Nueva cobranza</h3>
                             </div>
-                            <button type="button" onClick={() => setIsCreateOpen(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Cerrar formulario"><CloseIcon /></button>
+                            <button type="button" onClick={() => setIsCreateOpen(false)} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-200" aria-label="Cerrar formulario"><CloseIcon /></button>
                         </div>
 
-                        <form onSubmit={handleCreateCollection} className="mt-5 space-y-4">
+                        <form onSubmit={handleCreateCollection} className="mt-5 space-y-4" noValidate>
                             <div className="grid gap-4 sm:grid-cols-2">
-                                <label className="block text-sm font-semibold text-slate-700">
+                                <label htmlFor="clienteCobranza" className="block text-sm font-semibold text-slate-700">
                                     <span className="mb-2 block">Cliente</span>
-                                    <select value={newCollection.cliente} onChange={(event) => setNewCollection((current) => ({ ...current, cliente: event.target.value }))} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
+                                    <select id="clienteCobranza" value={newCollection.cliente} onChange={(event) => setNewCollection((current) => ({ ...current, cliente: event.target.value }))} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus-visible:ring-4 focus-visible:ring-blue-100">
                                         {clientOptions.map((client) => <option key={client} value={client}>{client}</option>)}
                                     </select>
                                 </label>
-                                <label className="block text-sm font-semibold text-slate-700">
+                                <label htmlFor="facturaCobranza" className="block text-sm font-semibold text-slate-700">
                                     <span className="mb-2 block">Factura asociada</span>
-                                    <input value={newCollection.numeroFactura} onChange={(event) => setNewCollection((current) => ({ ...current, numeroFactura: event.target.value }))} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" placeholder="Factura #A-0020" required />
+                                    <input id="facturaCobranza" value={newCollection.numeroFactura} onChange={(event) => setNewCollection((current) => ({ ...current, numeroFactura: event.target.value }))} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus-visible:ring-4 focus-visible:ring-blue-100" placeholder="Factura #A-0020" required />
                                 </label>
                             </div>
 
                             <div className="grid gap-4 sm:grid-cols-2">
-                                <label className="block text-sm font-semibold text-slate-700">
+                                <label htmlFor="montoCobranza" className="block text-sm font-semibold text-slate-700">
                                     <span className="mb-2 block">Monto</span>
-                                    <input type="number" min="0.01" step="0.01" value={newCollection.montoInformado} onChange={(event) => setNewCollection((current) => ({ ...current, montoInformado: event.target.value }))} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" placeholder="150000" required />
+                                    <input id="montoCobranza" type="number" min="0.01" step="0.01" value={newCollection.montoInformado} onChange={(event) => setNewCollection((current) => ({ ...current, montoInformado: event.target.value }))} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus-visible:ring-4 focus-visible:ring-blue-100" placeholder="150000" required />
                                 </label>
-                                <label className="block text-sm font-semibold text-slate-700">
+                                <label htmlFor="fechaCobranza" className="block text-sm font-semibold text-slate-700">
                                     <span className="mb-2 block">Fecha</span>
-                                    <input type="date" value={newCollection.fecha} onChange={(event) => setNewCollection((current) => ({ ...current, fecha: event.target.value }))} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" required />
+                                    <input id="fechaCobranza" type="date" value={newCollection.fecha} onChange={(event) => setNewCollection((current) => ({ ...current, fecha: event.target.value }))} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus-visible:ring-4 focus-visible:ring-blue-100" required />
                                 </label>
                             </div>
 
                             <div className="grid gap-4 sm:grid-cols-2">
-                                <label className="block text-sm font-semibold text-slate-700">
+                                <label htmlFor="medioCobranza" className="block text-sm font-semibold text-slate-700">
                                     <span className="mb-2 block">Medio de pago</span>
-                                    <select value={newCollection.medioPago} onChange={(event) => setNewCollection((current) => ({ ...current, medioPago: event.target.value }))} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
+                                    <select id="medioCobranza" value={newCollection.medioPago} onChange={(event) => setNewCollection((current) => ({ ...current, medioPago: event.target.value }))} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus-visible:ring-4 focus-visible:ring-blue-100">
                                         {paymentMethods.map((method) => <option key={method} value={method}>{method}</option>)}
                                     </select>
                                 </label>
-                                <label className="block text-sm font-semibold text-slate-700">
+                                <label htmlFor="estadoCobranza" className="block text-sm font-semibold text-slate-700">
                                     <span className="mb-2 block">Estado</span>
-                                    <select value={newCollection.estado} onChange={(event) => setNewCollection((current) => ({ ...current, estado: event.target.value }))} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
+                                    <select id="estadoCobranza" value={newCollection.estado} onChange={(event) => setNewCollection((current) => ({ ...current, estado: event.target.value }))} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus-visible:ring-4 focus-visible:ring-blue-100">
                                         {collectionStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
                                     </select>
                                 </label>
                             </div>
 
-                            <label className="block text-sm font-semibold text-slate-700">
+                            <label htmlFor="observacionesCobranza" className="block text-sm font-semibold text-slate-700">
                                 <span className="mb-2 block">Observaciones</span>
-                                <textarea value={newCollection.observaciones} onChange={(event) => setNewCollection((current) => ({ ...current, observaciones: event.target.value }))} rows={4} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" placeholder="Detalle del pago, referencia, comentarios del vendedor..." />
+                                <textarea id="observacionesCobranza" value={newCollection.observaciones} onChange={(event) => setNewCollection((current) => ({ ...current, observaciones: event.target.value }))} rows={4} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus-visible:ring-4 focus-visible:ring-blue-100" placeholder="Detalle del pago, referencia, comentarios del vendedor..." />
                             </label>
 
                             <div className="flex gap-3 border-t border-slate-200 pt-4">
-                                <button type="button" onClick={() => setIsCreateOpen(false)} className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancelar</button>
-                                <button type="submit" className="flex-1 rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-blue-700/20 hover:bg-blue-800">Guardar cobranza</button>
+                                <button type="button" onClick={() => setIsCreateOpen(false)} className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-200">Cancelar</button>
+                                <button type="submit" className="flex-1 rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-blue-700/20 transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200">Guardar cobranza</button>
                             </div>
                         </form>
                     </div>
