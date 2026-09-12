@@ -52,10 +52,17 @@ export default function ValidarCobranzaForm({ collection, onCancel, onSave }) {
             </label>
 
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                <span className="text-slate-500">Estado sugerido: </span>
-                <span className={`font-semibold ${previewStatus === 'Validada' ? 'text-emerald-700' : previewStatus === 'Parcial' ? 'text-blue-700' : previewStatus === 'Con saldo a favor' ? 'text-violet-700' : 'text-slate-600'}`}>
-                    {previewStatus}
-                </span>
+                <div className="flex items-center justify-between gap-3">
+                    <span className="text-slate-500">Estado sugerido:</span>
+                    <span className={`font-semibold ${previewStatus === 'Validada' ? 'text-emerald-700' : previewStatus === 'Parcial' ? 'text-blue-700' : previewStatus === 'Con saldo a favor' ? 'text-violet-700' : 'text-slate-600'}`}>
+                        {previewStatus}
+                    </span>
+                </div>
+                {difference !== null && difference > 0 && (
+                    <div className="mt-2 text-xs font-semibold text-violet-700">
+                        Saldo a favor: {formatCurrency(difference)}
+                    </div>
+                )}
             </div>
 
             <p className="text-xs leading-5 text-slate-500">La conciliación compara el monto validado con el total de la factura para decidir si queda validada, parcial o con saldo a favor.</p>

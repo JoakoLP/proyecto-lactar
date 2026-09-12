@@ -5,7 +5,6 @@ const statusStyles = {
     'Con saldo a favor': 'bg-violet-50 text-violet-700 ring-violet-600/20',
     'No identificada': 'bg-slate-100 text-slate-600 ring-slate-500/20',
     Rechazada: 'bg-rose-50 text-rose-700 ring-rose-500/20',
-    Anulada: 'bg-slate-200 text-slate-700 ring-slate-400/20',
 };
 
 export default function CobranzaStatusBadge({ status }) {
