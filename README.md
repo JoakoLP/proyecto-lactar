@@ -62,7 +62,7 @@ El desarrollo está dividido estratégicamente para asegurar la integración cru
 | **Esperanza Franco**    | 🏭 Producción + Trazabilidad         | Componentes de formularios       | 30%         |
 | **Veliz Condori Ruben** | 📦 Stock + Pedidos/Ventas            | Tablas y filtros interactivos    | 55%         |
 | **Moritan Victoria**    | 👥 Clientes + Cobranzas              | Validaciones y manejo de errores | 50%         |
-| **Takara Joaquin**      | 📊 Usuarios + Reportes + Importación | Routing, permisos y layouts      | 33%         |
+| **Takara Joaquin**      | 📊 Usuarios + Reportes + Importación | Routing, permisos y layouts      | 50%         |
 
 ## 🚀 Fases de Desarrollo
 

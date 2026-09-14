@@ -1,0 +1,4 @@
+nombreUsuario,nombre,apellido,email,rol,activo
+juanp,Juan,Perez,juanperez@lactar.com,Operario,true
+agomez,Ana,Gomez,agomez@lactar.com,Vendedor,true
+mtorres,Martin,Torres,mtorres@lactar.com,Administrador,false
