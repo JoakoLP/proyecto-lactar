@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-export default function ModalUsuario({ isOpen, onClose, onSave }) {
-    const [formData, setFormData] = useState({
+export default function ModalUsuario({ isOpen, onClose, onSave, usuario }) {
+    const defaultData = {
         nombre: "",
         apellido: "",
         nombreUsuario: "",
@@ -11,7 +11,17 @@ export default function ModalUsuario({ isOpen, onClose, onSave }) {
         password: "",
         rol: "Operario",
         activo: true,
-    });
+    };
+
+    const [formData, setFormData] = useState(defaultData);
+
+    useEffect(() => {
+        if (usuario) {
+            setFormData({ ...defaultData, ...usuario, password: "" }); // password vacío por seguridad al editar
+        } else {
+            setFormData(defaultData);
+        }
+    }, [usuario, isOpen]);
 
     if (!isOpen) return null;
 
@@ -26,24 +36,23 @@ export default function ModalUsuario({ isOpen, onClose, onSave }) {
     const handleSubmit = (e) => {
         e.preventDefault();
         onSave(formData);
-        // Reset form for next time (in a real app, this might depend on success)
-        setFormData({
-            nombre: "",
-            apellido: "",
-            nombreUsuario: "",
-            email: "",
-            password: "",
-            rol: "Operario",
-            activo: true,
-        });
+        // Se elimina el setFormData aquí porque lo maneja el useEffect
         onClose();
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm transition-opacity">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg border border-gray-200 overflow-hidden">
+        <div 
+            className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm transition-opacity"
+            onClick={onClose}
+        >
+            <div 
+                className="bg-white rounded-xl shadow-2xl w-full max-w-lg border border-gray-200 overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+            >
                 <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-                    <h2 className="text-lg font-bold text-blue-900">Añadir Nuevo Usuario</h2>
+                    <h2 className="text-lg font-bold text-blue-900">
+                        {usuario ? "Configurar Usuario" : "Añadir Nuevo Usuario"}
+                    </h2>
                     <button
                         onClick={onClose}
                         className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -62,10 +71,10 @@ export default function ModalUsuario({ isOpen, onClose, onSave }) {
                             <input
                                 type="text"
                                 name="nombre"
-                                value={formData.nombre}
+                            value={formData.nombre || ""}
                                 onChange={handleChange}
                                 required
-                                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
                                 placeholder="Ej: Juan"
                             />
                         </div>
@@ -74,10 +83,10 @@ export default function ModalUsuario({ isOpen, onClose, onSave }) {
                             <input
                                 type="text"
                                 name="apellido"
-                                value={formData.apellido}
+                                value={formData.apellido || ""}
                                 onChange={handleChange}
                                 required
-                                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
                                 placeholder="Ej: Pérez"
                             />
                         </div>
@@ -89,10 +98,10 @@ export default function ModalUsuario({ isOpen, onClose, onSave }) {
                             <input
                                 type="text"
                                 name="nombreUsuario"
-                                value={formData.nombreUsuario}
+                                value={formData.nombreUsuario || ""}
                                 onChange={handleChange}
                                 required
-                                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
                                 placeholder="Ej: jperez"
                             />
                         </div>
@@ -100,9 +109,9 @@ export default function ModalUsuario({ isOpen, onClose, onSave }) {
                             <label className="block text-sm font-medium text-gray-700 mb-1">Rol en el Sistema</label>
                             <select
                                 name="rol"
-                                value={formData.rol}
+                                value={formData.rol || "Operario"}
                                 onChange={handleChange}
-                                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white text-gray-900"
                             >
                                 <option value="Administrador">Administrador</option>
                                 <option value="Operario">Operario</option>
@@ -116,24 +125,26 @@ export default function ModalUsuario({ isOpen, onClose, onSave }) {
                         <input
                             type="email"
                             name="email"
-                            value={formData.email}
+                            value={formData.email || ""}
                             onChange={handleChange}
                             required
-                            className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
                             placeholder="jperez@lactar.com"
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña Provisoria</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            {usuario ? "Nueva Contraseña (Opcional)" : "Contraseña Provisoria"}
+                        </label>
                         <input
                             type="password"
                             name="password"
-                            value={formData.password}
+                            value={formData.password || ""}
                             onChange={handleChange}
-                            required
-                            className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
-                            placeholder="Mínimo 6 caracteres"
+                            required={!usuario}
+                            className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
+                            placeholder={usuario ? "Dejar en blanco para no cambiar" : "Mínimo 6 caracteres"}
                             minLength="6"
                         />
                     </div>
