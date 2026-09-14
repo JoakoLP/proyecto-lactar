@@ -46,14 +46,30 @@ const usuariosIniciales = [
 export default function UsuariosPage() {
     const [usuarios, setUsuarios] = useState(usuariosIniciales);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [usuarioEditando, setUsuarioEditando] = useState(null);
 
     const handleSaveUsuario = (nuevoUsuario) => {
-        // Simular guardado
-        const usuarioConId = {
-            ...nuevoUsuario,
-            idUsuario: usuarios.length + 1
-        };
-        setUsuarios([...usuarios, usuarioConId]);
+        if (nuevoUsuario.idUsuario) {
+            // Edición
+            setUsuarios(usuarios.map(u => u.idUsuario === nuevoUsuario.idUsuario ? nuevoUsuario : u));
+        } else {
+            // Creación
+            const usuarioConId = {
+                ...nuevoUsuario,
+                idUsuario: usuarios.length > 0 ? Math.max(...usuarios.map(u => u.idUsuario)) + 1 : 1
+            };
+            setUsuarios([...usuarios, usuarioConId]);
+        }
+    };
+
+    const handleOpenModal = (user = null) => {
+        setUsuarioEditando(user);
+        setIsModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setUsuarioEditando(null);
+        setIsModalOpen(false);
     };
 
     const getRolBadge = (rol) => {
@@ -83,7 +99,7 @@ export default function UsuariosPage() {
                 <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
                     <h2 className="text-lg font-bold text-blue-900">Gestión de Accesos y Roles</h2>
                     <button 
-                        onClick={() => setIsModalOpen(true)}
+                        onClick={() => handleOpenModal()}
                         className="bg-blue-700 text-white px-4 py-2 rounded shadow-sm text-sm font-medium hover:bg-blue-800 transition-colors"
                     >
                         + Añadir Usuario
@@ -112,7 +128,10 @@ export default function UsuariosPage() {
                                     <td className="px-6 py-4">{getRolBadge(user.rol)}</td>
                                     <td className="px-6 py-4">{getEstadoBadge(user.activo)}</td>
                                     <td className="px-6 py-4 text-right">
-                                        <button className="text-blue-600 font-medium hover:underline transition-all">
+                                        <button 
+                                            onClick={() => handleOpenModal(user)}
+                                            className="text-blue-600 font-medium hover:underline transition-all"
+                                        >
                                             Configurar
                                         </button>
                                     </td>
@@ -133,8 +152,9 @@ export default function UsuariosPage() {
             {/* Modal */}
             <ModalUsuario 
                 isOpen={isModalOpen} 
-                onClose={() => setIsModalOpen(false)} 
+                onClose={handleCloseModal} 
                 onSave={handleSaveUsuario} 
+                usuario={usuarioEditando}
             />
         </div>
     );
