@@ -92,7 +92,7 @@ export default function ImportacionPage() {
     const handleImportar = () => {
         if (!archivo || datosPreview.length === 0) return;
         setIsUploading(true);
-        
+
         // Simulación de subida al servidor
         setTimeout(() => {
             setIsUploading(false);
@@ -118,7 +118,7 @@ export default function ImportacionPage() {
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="p-6 space-y-6">
-                    
+
                     {/* Controles de Configuración */}
                     <div className="max-w-md">
                         <label className="block text-sm font-bold text-gray-700 mb-2">
@@ -130,7 +130,7 @@ export default function ImportacionPage() {
                                 setEntidad(e.target.value);
                                 handleLimpiar(); // Limpia el archivo si cambia la entidad
                             }}
-                            className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                            className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white text-gray-900"
                         >
                             <option value="clientes">Clientes</option>
                             <option value="usuarios">Usuarios</option>
@@ -142,15 +142,15 @@ export default function ImportacionPage() {
                     </div>
 
                     {/* Zona Drag & Drop */}
-                    <div 
-                        {...getRootProps()} 
+                    <div
+                        {...getRootProps()}
                         className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors
                             ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'}
                             ${archivo ? 'bg-gray-50' : ''}
                         `}
                     >
                         <input {...getInputProps()} />
-                        
+
                         {!archivo ? (
                             <div className="flex flex-col items-center space-y-3">
                                 <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
@@ -173,7 +173,7 @@ export default function ImportacionPage() {
                                 </div>
                                 <p className="text-md font-bold text-gray-800">{archivo.name}</p>
                                 <p className="text-xs text-gray-500">{(archivo.size / 1024).toFixed(2)} KB</p>
-                                <button 
+                                <button
                                     onClick={(e) => { e.stopPropagation(); handleLimpiar(); }}
                                     className="text-red-500 text-sm hover:underline mt-2"
                                 >
@@ -208,7 +208,7 @@ export default function ImportacionPage() {
                                     Columnas detectadas: {columnas.length}
                                 </span>
                             </div>
-                            
+
                             <div className="overflow-x-auto border border-gray-200 rounded-lg">
                                 <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
                                     <thead className="bg-gray-50">
