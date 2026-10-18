@@ -164,3 +164,91 @@ El siguiente esquema detalla las entidades principales y sus atributos clave exa
 * **EstadoCobranza:**
   * `idEstadoCobranza` (int)
   * `nombre` (VARCHAR(30))
+
+---
+
+## 5. Implementación y Configuración de Supabase (Backend & DB)
+
+Para conectar el monorepo Next.js con la base de datos PostgreSQL alojada en Supabase, el proyecto cuenta con la siguiente arquitectura base implementada:
+
+### Archivos Clave del Ecosistema:
+* **Cliente Central (`src/services/supabase.js`):**
+  Exporta la instancia `supabase` lista para usar en componentes o Route Handlers. Provee además `getServiceSupabase()` para operaciones de servidor con privilegios de `service_role` en caso de requerir bypass de restricciones.
+* **Variables de Entorno (`.env.local` y `.env.example`):**
+  Cada desarrollador debe contar con su archivo `.env.local` configurado con:
+  ```env
+  NEXT_PUBLIC_SUPABASE_URL=https://<tu-proyecto>.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
+  SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi... # Opcional / Backend
+  ```
+* **Esquema de Base de Datos y Seeds (`docs/database/schema.sql`):**
+  Script SQL oficial que contiene el DDL de todas las tablas con sus restricciones y claves foráneas, junto con la inserción de los catálogos base (Roles, Tinas de 5800 L, Estados y Catálogo de Quesos según Sección 2).
+* **Endpoint de Verificación (`src/app/api/health/route.js`):**
+  Endpoint para testear rápidamente conectividad y estado de configuración desde el navegador en `http://localhost:3000/api/health`.
+* **Manejo Estándar de Respuestas (`src/utils/apiResponse.js`):**
+  Funciones auxiliares `apiSuccess(data, message, status)` y `apiError(message, status, details)` para homogeneizar las salidas JSON de todos los endpoints de la API.
+
+---
+
+## 6. Guía de Interacción con la DB y Desarrollo de Endpoints (Route Handlers)
+
+Los asistentes de código y desarrolladores del equipo deben seguir este estándar para construir las rutas de backend (`/api/...`):
+
+### 1. Estructura de Endpoints (Next.js App Router)
+Todos los endpoints deben crearse dentro de `src/app/api/<recurso>/route.js` exportando las funciones HTTP correspondientes (`GET`, `POST`, `PUT`, `DELETE`).
+
+### 2. Patrón de Implementación Recomendado
+```javascript
+import { supabase } from "@/services/supabase";
+import { apiSuccess, apiError } from "@/utils/apiResponse";
+
+// Forzar respuesta dinámica para evitar caché estático indeseado en Next.js
+export const dynamic = "force-dynamic";
+
+export async function GET(request) {
+  try {
+    const { data, error } = await supabase
+      .from("cliente")
+      .select("*")
+      .order("idCliente", { ascending: true });
+
+    if (error) {
+      return apiError("Error al consultar clientes", 500, error.message);
+    }
+
+    return apiSuccess(data, "Clientes obtenidos correctamente");
+  } catch (err) {
+    return apiError("Error interno en el servidor", 500, err.message);
+  }
+}
+
+export async function POST(request) {
+  try {
+    const body = await request.json();
+
+    // Validaciones de negocio específicas del módulo antes de persistir
+    if (!body.razonSocial || !body.cuit) {
+      return apiError("Faltan campos obligatorios", 400);
+    }
+
+    const { data, error } = await supabase
+      .from("cliente")
+      .insert([body])
+      .select()
+      .single();
+
+    if (error) {
+      return apiError("No se pudo crear el cliente", 400, error.message);
+    }
+
+    return apiSuccess(data, "Cliente registrado exitosamente", 201);
+  } catch (err) {
+    return apiError("Error interno en el servidor", 500, err.message);
+  }
+}
+```
+
+### 3. Buenas Prácticas para los Módulos del Proyecto:
+* **Nombres de Tablas y Columnas:** Respetar los identificadores exactos definidos en la Sección 4 y en `schema.sql` (ej. `"codigoLote"`, `"idUsuario"`, `"idEstadoPedido"`).
+* **Manejo de Errores y Validaciones:** Siempre validar campos obligatorios y reglas de negocio del módulo (especificadas en la Sección 3) en el servidor antes de insertar o actualizar en la base de datos.
+* **Consumo desde el Frontend:** Las vistas y componentes dentro de `src/app/(dashboard)/` deben consumir estos endpoints utilizando `fetch("/api/<recurso>")` o mediante capas de servicio en `src/services/`, manteniendo la separación limpia entre UI y acceso a datos.
