@@ -212,3 +212,12 @@ INSERT INTO "producto" ("nombre", "rendimientoEsperado", "tiempoMaduracion", "pr
     ('Porsalut', 9.8, 15, 6800.00),
     ('Dulce de leche 10kg', NULL, 0, 18000.00)
 ON CONFLICT ("nombre") DO NOTHING;
+
+-- Clientes de prueba
+INSERT INTO "cliente" ("razonSocial", "cuit", "domicilio", "telefono", "email", "activo", "saldo") VALUES
+    ('Distribuidora Sur S.A.', '30712345679', 'Calle 44 Nro 123', '2214567890', 'compras@distribuidorasur.test', 1, -45000.00),
+    ('Fiambrería El Sol', '20281234564', 'Av. 7 Nro 456', '1145678901', 'administracion@elsol.test', 1, 0.00),
+    ('Supermercado Centro', '30887654321', 'Calle 12 Nro 890', '2219876543', 'pagos@supercentro.test', 1, 12500.00),
+    ('Lácteos del Oeste', '30654321981', 'Ruta 2 Km 58', NULL, NULL, 0, 0.00),
+    ('Cooperativa Oeste', '30000000005', 'Av. Principal Nro 100', '2215550105', 'contacto@cooperativaoeste.test', 1, 0.00)
+ON CONFLICT ("cuit") DO NOTHING;
