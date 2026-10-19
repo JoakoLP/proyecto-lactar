@@ -7,13 +7,14 @@ const emptyClient = { razonSocial: '', cuit: '', telefono: '', domicilio: '', em
 export default function ClienteForm({ client, clients, onCancel, onSave }) {
     const [values, setValues] = useState(client || emptyClient);
     const [error, setError] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
 
     const handleChange = (event) => {
         setValues({ ...values, [event.target.name]: event.target.value });
         setError('');
     };
 
-    const handleSubmit = (event) => {
+    const handleSubmit = async (event) => {
         event.preventDefault();
         const normalizedCuit = values.cuit.replace(/-/g, '').trim();
 
@@ -30,7 +31,14 @@ export default function ClienteForm({ client, clients, onCancel, onSave }) {
             return;
         }
 
-        onSave({ ...values, cuit: normalizedCuit, estado: values.estado || 'Activo' });
+        setIsSaving(true);
+        try {
+            await onSave({ ...values, cuit: normalizedCuit, estado: values.estado || 'Activo' });
+        } catch (saveError) {
+            setError(saveError.message || 'No se pudo guardar el cliente.');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -41,7 +49,7 @@ export default function ClienteForm({ client, clients, onCancel, onSave }) {
                     <h3 className="mt-1 text-xl font-bold text-slate-950">{client ? 'Editar cliente' : 'Nuevo cliente'}</h3>
                     <p className="mt-1 text-sm text-slate-500">Los campos marcados con * son obligatorios.</p>
                 </div>
-                <button type="button" onClick={onCancel} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100" aria-label="Cerrar formulario"><CloseIcon /></button>
+                <button type="button" onClick={onCancel} disabled={isSaving} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50" aria-label="Cerrar formulario"><CloseIcon /></button>
             </div>
             <div className="space-y-5">
                 <label htmlFor="razonSocial" className="block text-sm font-semibold text-slate-700">
@@ -69,8 +77,8 @@ export default function ClienteForm({ client, clients, onCancel, onSave }) {
             </div>
             {error && <p role="alert" aria-live="assertive" className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p>}
             <div className="flex gap-3 border-t border-slate-200 pt-4">
-                <button type="button" onClick={onCancel} className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-200">Cancelar</button>
-                <button type="submit" className="flex-1 rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-blue-700/20 transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200">Guardar cliente</button>
+                <button type="button" onClick={onCancel} disabled={isSaving} className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-200 disabled:cursor-not-allowed disabled:opacity-50">Cancelar</button>
+                <button type="submit" disabled={isSaving} className="flex-1 rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-blue-700/20 transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200 disabled:cursor-wait disabled:opacity-60">{isSaving ? 'Guardando...' : 'Guardar cliente'}</button>
             </div>
         </form>
     );

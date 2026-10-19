@@ -1,25 +1,50 @@
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import ClienteForm from '@/components/clientes/ClienteForm';
 import ClienteTable from '@/components/clientes/ClienteTable';
 import SummaryCard, { formatCurrency } from '@/components/ui/SummaryCard';
 import { PlusIcon, SearchIcon, UsersIcon, CheckIcon, AlertIcon, WalletIcon, CloseIcon } from '@/components/ui/Icons';
-
-const initialClients = [
-    { id: 1, razonSocial: 'Distribuidora Sur S.A.', cuit: '30712345679', telefono: '2214567890', domicilio: 'Calle 44 Nro 123', email: 'compras@distribuidorasur.com', saldo: -45000, estado: 'Activo' },
-    { id: 2, razonSocial: 'Fiambrería El Sol', cuit: '20281234564', telefono: '1145678901', domicilio: 'Av. 7 Nro 456', email: 'administracion@elsol.com', saldo: 0, estado: 'Activo' },
-    { id: 3, razonSocial: 'Supermercado Centro', cuit: '30887654321', telefono: '2219876543', domicilio: 'Calle 12 Nro 890', email: 'pagos@supercentro.com', saldo: 12500, estado: 'Activo' },
-    { id: 4, razonSocial: 'Lácteos del Oeste', cuit: '30654321981', telefono: '', domicilio: 'Ruta 2 Km 58', email: '', saldo: 0, estado: 'Inactivo' },
-];
+import { createCliente, deleteCliente, getClientes, updateCliente } from '@/services/clientes';
 
 export default function ClientesPage() {
-    const [clients, setClients] = useState(initialClients);
+    const [clients, setClients] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('Todos');
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingClient, setEditingClient] = useState(null);
     const [clientToDelete, setClientToDelete] = useState(null);
+    const [deleteError, setDeleteError] = useState('');
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    useEffect(() => {
+        const controller = new AbortController();
+        getClientes({ signal: controller.signal })
+            .then(setClients)
+            .catch((error) => {
+                if (!controller.signal.aborted) {
+                    setLoadError(error.message || 'No se pudieron cargar los clientes.');
+                }
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) setIsLoading(false);
+            });
+        return () => controller.abort();
+    }, []);
+
+    const loadClients = async () => {
+        setIsLoading(true);
+        setLoadError('');
+        try {
+            setClients(await getClientes());
+        } catch (error) {
+            setLoadError(error.message || 'No se pudieron cargar los clientes.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const filteredClients = useMemo(() => clients.filter((client) => {
         const matchesSearch = `${client.razonSocial} ${client.cuit}`.toLowerCase().includes(search.toLowerCase());
@@ -30,19 +55,35 @@ export default function ClientesPage() {
     const openEdit = (client) => { setEditingClient(client); setIsFormOpen(true); };
     const deleteClient = (clientId) => {
         const client = clients.find((item) => item.id === clientId);
+        setDeleteError('');
         setClientToDelete(client || null);
     };
 
-    const confirmDeleteClient = () => {
+    const confirmDeleteClient = async () => {
         if (!clientToDelete) return;
-        setClients((current) => current.filter((client) => client.id !== clientToDelete.id));
-        if (editingClient && editingClient.id === clientToDelete.id) setIsFormOpen(false);
-        setClientToDelete(null);
+        setIsDeleting(true);
+        setDeleteError('');
+        try {
+            await deleteCliente(clientToDelete.id);
+            setClients((current) => current.filter((client) => client.id !== clientToDelete.id));
+            if (editingClient && editingClient.id === clientToDelete.id) setIsFormOpen(false);
+            setClientToDelete(null);
+        } catch (error) {
+            setDeleteError(error.message || 'No se pudo eliminar el cliente.');
+        } finally {
+            setIsDeleting(false);
+        }
     };
 
-    const saveClient = (client) => {
-        if (client.id) setClients((current) => current.map((item) => item.id === client.id ? client : item));
-        else setClients((current) => [...current, { ...client, id: Date.now(), saldo: 0 }]);
+    const saveClient = async (client) => {
+        const savedClient = client.id
+            ? await updateCliente(client)
+            : await createCliente(client);
+        if (client.id) {
+            setClients((current) => current.map((item) => item.id === savedClient.id ? savedClient : item));
+        } else {
+            setClients((current) => [...current, savedClient]);
+        }
         setIsFormOpen(false);
     };
 
@@ -57,7 +98,7 @@ export default function ClientesPage() {
                     <h2 className="text-2xl font-bold tracking-tight text-slate-950">Clientes</h2>
                     <p className="mt-1 text-sm text-slate-500">Altas, datos de contacto y saldos.</p>
                 </div>
-                <button onClick={openCreate} className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800">
+                <button onClick={openCreate} disabled={isLoading || Boolean(loadError)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">
                     <PlusIcon /> Nuevo cliente
                 </button>
             </header>
@@ -91,7 +132,16 @@ export default function ClientesPage() {
                         </label>
                     </div>
                 </div>
-                <ClienteTable clients={filteredClients} onEdit={openEdit} onDelete={deleteClient} />
+                {loadError ? (
+                    <div className="flex flex-col items-center gap-3 px-6 py-12 text-center" role="alert">
+                        <p className="text-sm font-medium text-red-700">{loadError}</p>
+                        <button type="button" onClick={() => loadClients()} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-200">Reintentar</button>
+                    </div>
+                ) : isLoading ? (
+                    <p className="px-6 py-16 text-center text-sm text-slate-500" role="status">Cargando clientes...</p>
+                ) : (
+                    <ClienteTable clients={filteredClients} onEdit={openEdit} onDelete={deleteClient} />
+                )}
             </section>
 
             {isFormOpen && (
@@ -117,9 +167,11 @@ export default function ClientesPage() {
                             ¿Seguro que querés eliminar a <span className="font-bold text-slate-900">{clientToDelete.razonSocial}</span>? Esta acción no se puede deshacer desde esta vista.
                         </p>
 
+                        {deleteError && <p role="alert" aria-live="assertive" className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{deleteError}</p>}
+
                         <div className="mt-6 flex gap-3">
-                            <button type="button" onClick={() => setClientToDelete(null)} className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-200">Cancelar</button>
-                            <button type="button" onClick={confirmDeleteClient} className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-red-600/20 transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-200">Eliminar</button>
+                            <button type="button" onClick={() => setClientToDelete(null)} disabled={isDeleting} className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-200 disabled:cursor-not-allowed disabled:opacity-50">Cancelar</button>
+                            <button type="button" onClick={confirmDeleteClient} disabled={isDeleting} className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-red-600/20 transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-200 disabled:cursor-wait disabled:opacity-60">{isDeleting ? 'Eliminando...' : 'Eliminar'}</button>
                         </div>
                     </div>
                 </div>
