@@ -10,6 +10,7 @@ import {
 } from "@/services/pedidos";
 import { getProductos } from "@/services/productos";
 import { getStock } from "@/services/stock";
+import { getVentas } from "@/services/ventas";
 import FormularioPedido from "./FormularioPedido";
 import TablaPedidos from "./TablaPedidos";
 
@@ -33,8 +34,27 @@ function mapearPedido(pedido) {
   };
 }
 
-function obtenerKilosTotales(detalles) {
-  return detalles.reduce((total, detalle) => total + detalle.kilos, 0);
+function mapearVenta(venta) {
+  const pedido = venta.pedido;
+  const detalles = Array.isArray(pedido?.detalle_pedido)
+    ? pedido.detalle_pedido
+    : [];
+  const fechaVenta = new Date(venta.fechaVenta);
+
+  return {
+    idVenta: venta.idVenta,
+    idPedido: venta.idPedido,
+    numeroFactura: venta.numeroFactura,
+    fecha: Number.isNaN(fechaVenta.getTime())
+      ? "Fecha inválida"
+      : fechaVenta.toLocaleDateString("es-AR"),
+    cliente: pedido?.cliente?.razonSocial || "Cliente no disponible",
+    kilos: detalles.reduce(
+      (total, detalle) => total + Number(detalle.kilosSolicitados),
+      0,
+    ),
+    total: Number(venta.total),
+  };
 }
 
 function obtenerTotal(detalles) {
@@ -59,6 +79,8 @@ export default function ClientePedidos() {
   const [lotes, establecerLotes] = useState([]);
   const [pedidos, establecerPedidos] = useState([]);
   const [ventas, establecerVentas] = useState([]);
+  const [cargandoVentas, establecerCargandoVentas] = useState(false);
+  const [errorVentas, establecerErrorVentas] = useState("");
   const [pestana, establecerPestana] = useState("pedidos");
   const [pedidoSeleccionado, establecerPedidoSeleccionado] = useState(null);
   const [pedidoActualizando, establecerPedidoActualizando] = useState(null);
@@ -112,6 +134,19 @@ export default function ClientePedidos() {
 
     return () => controller.abort();
   }, [intentoCarga]);
+
+  async function cargarVentas() {
+    establecerCargandoVentas(true);
+    establecerErrorVentas("");
+
+    try {
+      establecerVentas((await getVentas()).map(mapearVenta));
+    } catch (error) {
+      establecerErrorVentas(error.message);
+    } finally {
+      establecerCargandoVentas(false);
+    }
+  }
 
   function actualizarCampo(evento) {
     establecerFormulario((actual) => ({
@@ -228,19 +263,6 @@ export default function ClientePedidos() {
               : item,
           ),
         );
-        establecerVentas((actuales) => [
-          {
-            idVenta: venta.idVenta,
-            idPedido: venta.idPedido,
-            fecha: new Intl.DateTimeFormat("es-AR").format(
-              new Date(venta.fechaVenta),
-            ),
-            cliente: pedido.cliente,
-            total: Number(venta.total),
-            kilos: obtenerKilosTotales(pedido.detalles),
-          },
-          ...actuales,
-        ]);
         establecerAviso(
           `Pedido #${idPedido} confirmado. Factura ${venta.numeroFactura}.`,
         );
@@ -330,7 +352,10 @@ export default function ClientePedidos() {
         <button
           type="button"
           role="tab"
-          onClick={() => establecerPestana("ventas")}
+          onClick={() => {
+            establecerPestana("ventas");
+            void cargarVentas();
+          }}
           className={`border-b-2 px-4 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 ${pestana === "ventas" ? "border-lactarBlue text-lactarBlue" : "border-transparent text-gray-500"}`}
           aria-selected={pestana === "ventas"}
         >
@@ -404,7 +429,12 @@ export default function ClientePedidos() {
               )}
             </>
           ) : (
-            <TablaVentas ventas={ventas} />
+            <TablaVentas
+              ventas={ventas}
+              cargando={cargandoVentas}
+              error={errorVentas}
+              alReintentar={cargarVentas}
+            />
           )}
         </>
       )}
@@ -494,7 +524,7 @@ function DetallePedido({ pedido, alCambiarEstado, actualizando }) {
   );
 }
 
-function TablaVentas({ ventas }) {
+function TablaVentas({ ventas, cargando, error, alReintentar }) {
   return (
     <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
       <div className="border-b border-gray-200 px-6 py-4">
@@ -503,42 +533,62 @@ function TablaVentas({ ventas }) {
           Estas operaciones ya descontaron kilos del stock disponible.
         </p>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] text-left text-sm">
-          <caption className="sr-only">Listado de ventas confirmadas</caption>
-          <thead className="border-b border-gray-200 bg-gray-100 text-xs uppercase text-gray-600">
-            <tr>
-              <th className="px-4 py-3">Venta</th>
-              <th className="px-4 py-3">Pedido</th>
-              <th className="px-4 py-3">Fecha</th>
-              <th className="px-4 py-3">Cliente</th>
-              <th className="px-4 py-3">Kilos</th>
-              <th className="px-4 py-3">Total</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200 text-slate-900">
-            {ventas.map((venta) => (
-              <tr key={venta.idVenta}>
-                <td className="px-4 py-3 font-bold">#{venta.idVenta}</td>
-                <td className="px-4 py-3">#{venta.idPedido}</td>
-                <td className="px-4 py-3">{venta.fecha}</td>
-                <td className="px-4 py-3">{venta.cliente}</td>
-                <td className="px-4 py-3 font-bold">
-                  {venta.kilos.toLocaleString("es-AR")} kg
-                </td>
-                <td className="px-4 py-3 font-bold">
-                  ${venta.total.toLocaleString("es-AR")}
-                </td>
+      {cargando ? (
+        <p role="status" aria-live="polite" className="p-6 text-sm text-gray-600">
+          Cargando ventas confirmadas...
+        </p>
+      ) : error ? (
+        <div role="alert" className="p-6 text-sm text-red-800">
+          <p>No se pudieron cargar las ventas: {error}</p>
+          <button
+            type="button"
+            onClick={alReintentar}
+            className="mt-3 rounded-lg bg-red-700 px-4 py-2 font-semibold text-white hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-700 focus:ring-offset-2"
+          >
+            Reintentar
+          </button>
+        </div>
+      ) : ventas.length === 0 ? (
+        <p role="status" className="p-6 text-sm text-gray-500">
+          Todavía no hay ventas confirmadas.
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px] text-left text-sm">
+            <caption className="sr-only">Listado de ventas confirmadas</caption>
+            <thead className="border-b border-gray-200 bg-gray-100 text-xs uppercase text-gray-600">
+              <tr>
+                <th className="px-4 py-3">Venta</th>
+                <th className="px-4 py-3">Factura</th>
+                <th className="px-4 py-3">Pedido</th>
+                <th className="px-4 py-3">Fecha</th>
+                <th className="px-4 py-3">Cliente</th>
+                <th className="px-4 py-3">Kilos</th>
+                <th className="px-4 py-3">Total</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {ventas.length === 0 && (
-          <p className="p-6 text-sm text-gray-500">
-            Todavía no hay ventas confirmadas.
-          </p>
-        )}
-      </div>
+            </thead>
+            <tbody className="divide-y divide-gray-200 text-slate-900">
+              {ventas.map((venta) => (
+                <tr key={venta.idVenta}>
+                  <td className="px-4 py-3 font-bold">#{venta.idVenta}</td>
+                  <td className="px-4 py-3">{venta.numeroFactura}</td>
+                  <td className="px-4 py-3">
+                    {venta.idPedido ? `#${venta.idPedido}` : "—"}
+                  </td>
+                  <td className="px-4 py-3">{venta.fecha}</td>
+                  <td className="px-4 py-3">{venta.cliente}</td>
+                  <td className="px-4 py-3 font-bold">
+                    {venta.kilos.toLocaleString("es-AR")} kg
+                  </td>
+                  <td className="px-4 py-3 font-bold">
+                    ${venta.total.toLocaleString("es-AR")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 }
