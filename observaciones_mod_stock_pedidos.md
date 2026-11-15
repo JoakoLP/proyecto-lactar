@@ -66,3 +66,36 @@ Se usan los nombres definidos en `docs/database/schema.sql`: `lote`,
 con las columnas `codigoLote`, `kilosDisponibles`, `fechaInicio`,
 `idEstadoLote`, `idEstadoPedido`, `idPedido`, `nroItem`, `idProducto` y
 `kilosAsignados`.
+
+## Operación transaccional de alta de pedidos pendiente
+
+La creación de pedidos con reserva de stock no está implementada. El esquema
+define las tablas necesarias, pero no contiene una función de base de datos que
+valide disponibilidad, cree el pedido y sus detalles, y asigne los lotes como
+una única operación atómica. La ruta `GET /api/pedidos` es de solo consulta y no
+resuelve este flujo.
+
+Cuando se autorice implementar el alta, la operación deberá:
+
+- Recibir un cliente y uno o más detalles con producto, kilos solicitados,
+  cantidad de piezas y precio por kilo; validar identificadores y cantidades
+  positivas antes de persistir.
+- Ejecutar la validación y todas las escrituras dentro de una transacción:
+  insertar `pedido` en estado `Pendiente`, insertar sus filas en
+  `detalle_pedido` y crear las filas correspondientes en `asignacion_lote`.
+- Seleccionar lotes del producto solicitado en orden FIFO
+  (`lote.fechaInicio` ascendente y `lote.codigoLote` ascendente) y bloquearlos
+  durante el cálculo de disponibilidad para serializar altas concurrentes.
+- Calcular los kilos asignables por lote como
+  `lote.kilosDisponibles` menos las asignaciones de pedidos activos
+  (`Pendiente`, `En preparación` y `Preparado`), según el criterio de reservas
+  de este documento.
+- Revertir el pedido, detalles y asignaciones si algún producto no alcanza el
+  stock solicitado; no dejar reservas parciales ni permitir sobreventa.
+- Informar claramente los errores de cliente/producto/cantidad inválidos o
+  stock insuficiente.
+
+La operación debe implementarse en la base de datos y exponerse más adelante
+mediante una ruta de escritura del servidor. No realizar estas escrituras desde
+el cliente ni cambiar el comportamiento de `GET /api/pedidos` como parte de una
+tarea limitada a consulta.
