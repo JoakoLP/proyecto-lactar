@@ -67,35 +67,28 @@ con las columnas `codigoLote`, `kilosDisponibles`, `fechaInicio`,
 `idEstadoLote`, `idEstadoPedido`, `idPedido`, `nroItem`, `idProducto` y
 `kilosAsignados`.
 
-## Operación transaccional de alta de pedidos pendiente
+## Alta transaccional de pedidos
 
-La creación de pedidos con reserva de stock no está implementada. El esquema
-define las tablas necesarias, pero no contiene una función de base de datos que
-valide disponibilidad, cree el pedido y sus detalles, y asigne los lotes como
-una única operación atómica. La ruta `GET /api/pedidos` es de solo consulta y no
-resuelve este flujo.
+La función `public.crear_pedido_transaccional` del archivo
+`docs/database/crear_pedido_transaccional.sql` crea el pedido, sus detalles y
+sus asignaciones de lote dentro de una misma transacción. La ruta
+`POST /api/pedidos` valida la estructura del cuerpo y delega la escritura a esa
+función; el precio por kilo se toma de `producto.precioBase`, no del cliente.
 
-Cuando se autorice implementar el alta, la operación deberá:
+El cuerpo de la solicitud acepta `idCliente`, `observaciones` opcionales y una
+lista `detalles` con `idProducto`, `cantidadPiezas` y `kilosSolicitados` por
+ítem. No acepta precios enviados por el cliente.
 
-- Recibir un cliente y uno o más detalles con producto, kilos solicitados,
-  cantidad de piezas y precio por kilo; validar identificadores y cantidades
-  positivas antes de persistir.
-- Ejecutar la validación y todas las escrituras dentro de una transacción:
-  insertar `pedido` en estado `Pendiente`, insertar sus filas en
-  `detalle_pedido` y crear las filas correspondientes en `asignacion_lote`.
-- Seleccionar lotes del producto solicitado en orden FIFO
-  (`lote.fechaInicio` ascendente y `lote.codigoLote` ascendente) y bloquearlos
-  durante el cálculo de disponibilidad para serializar altas concurrentes.
-- Calcular los kilos asignables por lote como
-  `lote.kilosDisponibles` menos las asignaciones de pedidos activos
-  (`Pendiente`, `En preparación` y `Preparado`), según el criterio de reservas
-  de este documento.
-- Revertir el pedido, detalles y asignaciones si algún producto no alcanza el
-  stock solicitado; no dejar reservas parciales ni permitir sobreventa.
-- Informar claramente los errores de cliente/producto/cantidad inválidos o
-  stock insuficiente.
+La función bloquea en orden FIFO los lotes `Disponible` de los productos
+solicitados y calcula el remanente descontando las asignaciones activas. Si el
+cliente no existe o está inactivo, el producto o las cantidades son inválidos,
+el subtotal excede la capacidad de la columna o el stock no alcanza, la
+operación devuelve un error y la transacción revierte el pedido y cualquier
+asignación parcial. El bloqueo serializa las altas concurrentes que compiten
+por los mismos lotes.
 
-La operación debe implementarse en la base de datos y exponerse más adelante
-mediante una ruta de escritura del servidor. No realizar estas escrituras desde
-el cliente ni cambiar el comportamiento de `GET /api/pedidos` como parte de una
-tarea limitada a consulta.
+Para desplegar esta operación en Supabase, hay que aplicar
+`docs/database/crear_pedido_transaccional.sql` después de crear las tablas y
+cargar los estados de lote y pedido.
+Las escrituras se hacen desde la ruta del servidor; no deben trasladarse al
+cliente. La consulta `GET /api/pedidos` permanece sin cambios.
