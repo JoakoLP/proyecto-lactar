@@ -69,3 +69,24 @@ export async function cambiarEstadoPedido(idPedido, estado) {
 
     return actualizado;
 }
+
+export async function confirmarVentaPedido(idPedido) {
+    const venta = await requestPedidos(`/api/pedidos/${idPedido}/confirmar`, {
+        method: 'POST',
+    });
+
+    if (
+        !venta ||
+        typeof venta !== 'object' ||
+        Array.isArray(venta) ||
+        venta.idPedido !== idPedido ||
+        !Number.isInteger(venta.idVenta) ||
+        typeof venta.numeroFactura !== 'string' ||
+        !Number.isFinite(Number(venta.total)) ||
+        typeof venta.fechaVenta !== 'string'
+    ) {
+        throw new Error('El servidor devolvió una venta confirmada inválida.');
+    }
+
+    return venta;
+}

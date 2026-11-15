@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { getClientes } from "@/services/clientes";
 import {
   cambiarEstadoPedido as actualizarEstadoPedido,
+  confirmarVentaPedido,
   createPedido,
   getPedidos,
 } from "@/services/pedidos";
@@ -214,33 +215,43 @@ export default function ClientePedidos() {
     const pedido = pedidos.find((item) => item.idPedido === idPedido);
     if (!pedido || !ESTADOS_EDITABLES.includes(pedido.estado)) return;
 
-    if (nuevoEstado !== "Confirmado") {
+    if (nuevoEstado === "Confirmado") {
       establecerPedidoActualizando(idPedido);
       establecerError("");
       establecerAviso("");
       try {
-        const actualizado = await actualizarEstadoPedido(idPedido, nuevoEstado);
+        const venta = await confirmarVentaPedido(idPedido);
         establecerPedidos((actuales) =>
           actuales.map((item) =>
             item.idPedido === idPedido
-              ? { ...item, estado: actualizado.estado }
+              ? { ...item, estado: "Confirmado" }
               : item,
           ),
         );
-
-        if (nuevoEstado === "Cancelado") {
-          try {
-            establecerLotes(await getStock());
-          } catch (errorActualizacion) {
-            establecerError(
-              `El pedido fue cancelado, pero no se pudo actualizar el stock: ${errorActualizacion.message}`,
-            );
-          }
-        }
-
+        establecerVentas((actuales) => [
+          {
+            idVenta: venta.idVenta,
+            idPedido: venta.idPedido,
+            fecha: new Intl.DateTimeFormat("es-AR").format(
+              new Date(venta.fechaVenta),
+            ),
+            cliente: pedido.cliente,
+            total: Number(venta.total),
+            kilos: obtenerKilosTotales(pedido.detalles),
+          },
+          ...actuales,
+        ]);
         establecerAviso(
-          `El pedido #${idPedido} ahora está ${actualizado.estado.toLowerCase()}.`,
+          `Pedido #${idPedido} confirmado. Factura ${venta.numeroFactura}.`,
         );
+
+        try {
+          establecerLotes(await getStock());
+        } catch (errorActualizacion) {
+          establecerError(
+            `La venta se confirmó, pero no se pudo actualizar el stock: ${errorActualizacion.message}`,
+          );
+        }
       } catch (error) {
         establecerError(error.message);
       } finally {
@@ -249,41 +260,37 @@ export default function ClientePedidos() {
       return;
     }
 
-    if (nuevoEstado === "Confirmado") {
-      establecerLotes((actuales) => {
-        const resultado = actuales.map((lote) => ({ ...lote }));
-        pedido.detalles.forEach((detalle) => {
-          let pendiente = detalle.kilos;
-          resultado.forEach((lote) => {
-            if (lote.producto !== detalle.producto || pendiente <= 0) return;
-            const descuento = Math.min(lote.kilosReservados, pendiente);
-            lote.kilosDisponibles -= descuento;
-            lote.kilosReservados -= descuento;
-            pendiente -= descuento;
-          });
-        });
-        return resultado;
-      });
-      establecerVentas((actuales) => [
-        {
-          idVenta: actuales.length + 1,
-          idPedido,
-          fecha: new Intl.DateTimeFormat("es-AR").format(new Date()),
-          cliente: pedido.cliente,
-          total: obtenerTotal(pedido.detalles),
-          kilos: obtenerKilosTotales(pedido.detalles),
-        },
-        ...actuales,
-      ]);
+    establecerPedidoActualizando(idPedido);
+    establecerError("");
+    establecerAviso("");
+    try {
+      const actualizado = await actualizarEstadoPedido(idPedido, nuevoEstado);
+      establecerPedidos((actuales) =>
+        actuales.map((item) =>
+          item.idPedido === idPedido
+            ? { ...item, estado: actualizado.estado }
+            : item,
+        ),
+      );
+
+      if (nuevoEstado === "Cancelado") {
+        try {
+          establecerLotes(await getStock());
+        } catch (errorActualizacion) {
+          establecerError(
+            `El pedido fue cancelado, pero no se pudo actualizar el stock: ${errorActualizacion.message}`,
+          );
+        }
+      }
+
+      establecerAviso(
+        `El pedido #${idPedido} ahora está ${actualizado.estado.toLowerCase()}.`,
+      );
+    } catch (error) {
+      establecerError(error.message);
+    } finally {
+      establecerPedidoActualizando(null);
     }
-    establecerPedidos((actuales) =>
-      actuales.map((item) =>
-        item.idPedido === idPedido ? { ...item, estado: nuevoEstado } : item,
-      ),
-    );
-    establecerAviso(
-      `El pedido #${idPedido} ahora está ${nuevoEstado.toLowerCase()}.`,
-    );
   }
 
   const pedidoActivo = pedidos.find(
@@ -445,14 +452,16 @@ function DetallePedido({ pedido, alCambiarEstado, actualizando }) {
                 Marcar preparado
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => alCambiarEstado(pedido.idPedido, "Confirmado")}
-              disabled={actualizando}
-              className="rounded bg-green-700 px-3 py-2 text-xs font-bold text-white hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Confirmar venta
-            </button>
+            {pedido.estado === "Preparado" && (
+              <button
+                type="button"
+                onClick={() => alCambiarEstado(pedido.idPedido, "Confirmado")}
+                disabled={actualizando}
+                className="rounded bg-green-700 px-3 py-2 text-xs font-bold text-white hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Confirmar venta
+              </button>
+            )}
             <button
               type="button"
               onClick={() => alCambiarEstado(pedido.idPedido, "Cancelado")}

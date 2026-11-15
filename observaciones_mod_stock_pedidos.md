@@ -112,3 +112,23 @@ transicionar mediante esta operación.
 Para desplegar los cambios de estado en Supabase, aplicar
 `docs/database/cambiar_estado_pedido_transaccional.sql` después de crear las
 tablas y cargar los estados de pedido.
+
+## Confirmación transaccional de ventas
+
+La función `public.confirmar_venta_pedido_transaccional` de
+`docs/database/confirmar_venta_pedido_transaccional.sql` acepta únicamente
+pedidos `Preparado`. Bloquea el pedido y sus lotes en orden determinista,
+verifica que las asignaciones cubran exactamente los kilos de cada detalle y
+que descontarlos no consuma stock reservado para otros pedidos. En la misma
+transacción descuenta `lote.kilosDisponibles`, crea una fila en `venta` con
+factura `PED-<idPedido>` y cambia el pedido a `Confirmado`.
+
+Las asignaciones se conservan para trazabilidad, pero los pedidos `Confirmado`
+no se cuentan entre las reservas activas. La fila del pedido se bloquea y se
+verifica que no exista ya una venta asociada, por lo que confirmaciones
+concurrentes o repetidas no generan una segunda venta.
+
+La confirmación se expone mediante `POST /api/pedidos/[idPedido]/confirmar`.
+Para desplegarla en Supabase, aplicar
+`docs/database/confirmar_venta_pedido_transaccional.sql` después de crear las
+tablas y cargar los estados de pedido.
