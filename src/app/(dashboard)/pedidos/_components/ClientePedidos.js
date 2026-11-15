@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { getClientes } from "@/services/clientes";
-import { getPedidos, createPedido } from "@/services/pedidos";
+import {
+  cambiarEstadoPedido as actualizarEstadoPedido,
+  createPedido,
+  getPedidos,
+} from "@/services/pedidos";
 import { getProductos } from "@/services/productos";
 import { getStock } from "@/services/stock";
 import FormularioPedido from "./FormularioPedido";
@@ -48,23 +52,6 @@ function obtenerStock(lotes, producto) {
     );
 }
 
-function ajustarReserva(lotes, pedidos, multiplicador = 1) {
-  const resultado = lotes.map((lote) => ({ ...lote }));
-  pedidos
-    .flatMap((pedido) => pedido.detalles)
-    .forEach((detalle) => {
-      let pendiente = detalle.kilos;
-      resultado.forEach((lote) => {
-        if (lote.producto !== detalle.producto || pendiente <= 0) return;
-        const capacidad = lote.kilosDisponibles - lote.kilosReservados;
-        const ajuste = Math.min(capacidad, pendiente);
-        lote.kilosReservados += ajuste * multiplicador;
-        pendiente -= ajuste;
-      });
-    });
-  return resultado;
-}
-
 export default function ClientePedidos() {
   const [clientes, establecerClientes] = useState([]);
   const [productos, establecerProductos] = useState([]);
@@ -73,6 +60,7 @@ export default function ClientePedidos() {
   const [ventas, establecerVentas] = useState([]);
   const [pestana, establecerPestana] = useState("pedidos");
   const [pedidoSeleccionado, establecerPedidoSeleccionado] = useState(null);
+  const [pedidoActualizando, establecerPedidoActualizando] = useState(null);
   const [cargando, establecerCargando] = useState(true);
   const [errorCarga, establecerErrorCarga] = useState("");
   const [intentoCarga, establecerIntentoCarga] = useState(0);
@@ -222,12 +210,45 @@ export default function ClientePedidos() {
     }
   }
 
-  function cambiarEstadoPedido(idPedido, nuevoEstado) {
+  async function cambiarEstadoPedido(idPedido, nuevoEstado) {
     const pedido = pedidos.find((item) => item.idPedido === idPedido);
     if (!pedido || !ESTADOS_EDITABLES.includes(pedido.estado)) return;
-    if (nuevoEstado === "Cancelado") {
-      establecerLotes((actuales) => ajustarReserva(actuales, [pedido], -1));
+
+    if (nuevoEstado !== "Confirmado") {
+      establecerPedidoActualizando(idPedido);
+      establecerError("");
+      establecerAviso("");
+      try {
+        const actualizado = await actualizarEstadoPedido(idPedido, nuevoEstado);
+        establecerPedidos((actuales) =>
+          actuales.map((item) =>
+            item.idPedido === idPedido
+              ? { ...item, estado: actualizado.estado }
+              : item,
+          ),
+        );
+
+        if (nuevoEstado === "Cancelado") {
+          try {
+            establecerLotes(await getStock());
+          } catch (errorActualizacion) {
+            establecerError(
+              `El pedido fue cancelado, pero no se pudo actualizar el stock: ${errorActualizacion.message}`,
+            );
+          }
+        }
+
+        establecerAviso(
+          `El pedido #${idPedido} ahora está ${actualizado.estado.toLowerCase()}.`,
+        );
+      } catch (error) {
+        establecerError(error.message);
+      } finally {
+        establecerPedidoActualizando(null);
+      }
+      return;
     }
+
     if (nuevoEstado === "Confirmado") {
       establecerLotes((actuales) => {
         const resultado = actuales.map((lote) => ({ ...lote }));
@@ -371,6 +392,7 @@ export default function ClientePedidos() {
                 <DetallePedido
                   pedido={pedidoActivo}
                   alCambiarEstado={cambiarEstadoPedido}
+                  actualizando={pedidoActualizando === pedidoActivo.idPedido}
                 />
               )}
             </>
@@ -383,7 +405,7 @@ export default function ClientePedidos() {
   );
 }
 
-function DetallePedido({ pedido, alCambiarEstado }) {
+function DetallePedido({ pedido, alCambiarEstado, actualizando }) {
   const puedeCambiar = ESTADOS_EDITABLES.includes(pedido.estado);
   return (
     <section
@@ -401,30 +423,52 @@ function DetallePedido({ pedido, alCambiarEstado }) {
         </div>
         {puedeCambiar && (
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => alCambiarEstado(pedido.idPedido, "Preparado")}
-              className="rounded bg-blue-700 px-3 py-2 text-xs font-bold text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              Marcar preparado
-            </button>
+            {pedido.estado === "Pendiente" && (
+              <button
+                type="button"
+                onClick={() =>
+                  alCambiarEstado(pedido.idPedido, "En preparación")
+                }
+                disabled={actualizando}
+                className="rounded bg-blue-700 px-3 py-2 text-xs font-bold text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Iniciar preparación
+              </button>
+            )}
+            {pedido.estado === "En preparación" && (
+              <button
+                type="button"
+                onClick={() => alCambiarEstado(pedido.idPedido, "Preparado")}
+                disabled={actualizando}
+                className="rounded bg-blue-700 px-3 py-2 text-xs font-bold text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Marcar preparado
+              </button>
+            )}
             <button
               type="button"
               onClick={() => alCambiarEstado(pedido.idPedido, "Confirmado")}
-              className="rounded bg-green-700 px-3 py-2 text-xs font-bold text-white hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500"
+              disabled={actualizando}
+              className="rounded bg-green-700 px-3 py-2 text-xs font-bold text-white hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Confirmar venta
             </button>
             <button
               type="button"
               onClick={() => alCambiarEstado(pedido.idPedido, "Cancelado")}
-              className="rounded bg-red-100 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500"
+              disabled={actualizando}
+              className="rounded bg-red-100 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Cancelar
             </button>
           </div>
         )}
       </div>
+      {actualizando && (
+        <p role="status" aria-live="polite" className="mt-3 text-sm text-gray-700">
+          Actualizando el estado del pedido...
+        </p>
+      )}
       <ul className="mt-4 divide-y divide-blue-200 text-sm text-slate-900">
         {pedido.detalles.map((detalle) => (
           <li key={detalle.producto} className="flex justify-between py-2">

@@ -92,3 +92,23 @@ Para desplegar esta operación en Supabase, hay que aplicar
 cargar los estados de lote y pedido.
 Las escrituras se hacen desde la ruta del servidor; no deben trasladarse al
 cliente. La consulta `GET /api/pedidos` permanece sin cambios.
+
+## Cambios de estado y liberación de reservas
+
+La función `public.cambiar_estado_pedido_transaccional` de
+`docs/database/cambiar_estado_pedido_transaccional.sql` actualiza un pedido
+bloqueando su fila y validando su estado actual. La ruta
+`PATCH /api/pedidos/[idPedido]` permite iniciar la preparación
+(`Pendiente` → `En preparación`), marcar el pedido preparado
+(`En preparación` → `Preparado`) y cancelar desde cualquiera de esos estados
+activos.
+
+Al cancelar, se conserva la relación de `asignacion_lote` para trazabilidad,
+pero el estado `Cancelado` deja de contarse entre las reservas activas. Así, la
+consulta de stock vuelve a incluir esos kilos sin borrar la historia de la
+asignación. Los pedidos confirmados o ya cancelados no pueden volver a
+transicionar mediante esta operación.
+
+Para desplegar los cambios de estado en Supabase, aplicar
+`docs/database/cambiar_estado_pedido_transaccional.sql` después de crear las
+tablas y cargar los estados de pedido.

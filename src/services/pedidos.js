@@ -49,3 +49,23 @@ export async function createPedido(pedido) {
 
     return creado;
 }
+
+export async function cambiarEstadoPedido(idPedido, estado) {
+    const actualizado = await requestPedidos(`/api/pedidos/${idPedido}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado }),
+    });
+
+    if (
+        !actualizado ||
+        typeof actualizado !== 'object' ||
+        Array.isArray(actualizado) ||
+        actualizado.idPedido !== idPedido ||
+        actualizado.estado !== estado
+    ) {
+        throw new Error('El servidor devolvió un estado de pedido inválido.');
+    }
+
+    return actualizado;
+}
