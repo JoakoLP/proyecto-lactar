@@ -132,3 +132,147 @@ La confirmación se expone mediante `POST /api/pedidos/[idPedido]/confirmar`.
 Para desplegarla en Supabase, aplicar
 `docs/database/confirmar_venta_pedido_transaccional.sql` después de crear las
 tablas y cargar los estados de pedido.
+
+## Despliegue integrado y prueba del flujo
+
+Aplicar los archivos en este orden desde el SQL Editor de Supabase o con una
+conexión administrativa a PostgreSQL:
+
+1. `docs/database/schema.sql`
+2. `docs/database/crear_pedido_transaccional.sql`
+3. `docs/database/cambiar_estado_pedido_transaccional.sql`
+4. `docs/database/confirmar_venta_pedido_transaccional.sql`
+
+El esquema debe estar cargado antes que las funciones, ya que las funciones
+usan las tablas y los estados sembrados por el esquema. Las funciones usan
+`CREATE OR REPLACE`; aplicar nuevamente un archivo actualiza su definición,
+pero no reemplaza ni limpia datos existentes.
+
+Configurar las variables de Supabase para el entorno de desarrollo y ejecutar
+la aplicación con `npm run dev`. Hacer las pruebas de escritura solo contra una
+base de desarrollo descartable: la cancelación deja el pedido y su asignación
+como historial, mientras que la confirmación crea una venta y descuenta stock
+de forma permanente.
+
+### Endpoints del recorrido
+
+| Operación | Endpoint | Resultado esperado |
+| --- | --- | --- |
+| Consultar conectividad | `GET /api/health` | Estado de configuración y conexión |
+| Consultar stock y reservas | `GET /api/stock` | Lotes y kilos disponibles/reservados |
+| Consultar pedidos | `GET /api/pedidos` | Pedidos con cliente, estado, detalles y asignaciones |
+| Crear pedido y reservar | `POST /api/pedidos` | `201`; pedido en `Pendiente` con asignaciones FIFO |
+| Cancelar pedido | `PATCH /api/pedidos/{idPedido}` | Enviar `{"estado":"Cancelado"}`; reserva liberada |
+| Preparar pedido | `PATCH /api/pedidos/{idPedido}` | Enviar `{"estado":"En preparación"}` y luego `{"estado":"Preparado"}` |
+| Confirmar venta | `POST /api/pedidos/{idPedido}/confirmar` | `201`; venta creada, stock descontado y pedido `Confirmado` |
+| Consultar ventas | `GET /api/ventas` | Ventas con pedido, cliente, detalles, asignaciones y cobranzas |
+
+### Prueba manual
+
+Antes de crear pedidos, consultar `GET /api/clientes`, `GET /api/productos` y
+`GET /api/stock`. Elegir un cliente activo y un producto que tenga al menos los
+kilos necesarios en lotes `Disponible`; los lotes `Reservado parcial` y
+`Reservado total` no son candidatos para la asignación de pedidos. Usar valores
+reales de esas consultas, no IDs supuestos.
+
+El siguiente ejemplo de PowerShell solicita los IDs y kilos, y crea un pedido.
+Ejecutarlo dos veces en una base de desarrollo con stock suficiente: cancelar
+el primer pedido y usar el segundo para recorrer la confirmación.
+
+```powershell
+$base = "http://localhost:3000"
+$idCliente = [int](Read-Host "ID de un cliente activo")
+$idProducto = [int](Read-Host "ID de un producto con lotes Disponible")
+$kilos = [decimal](Read-Host "Kilos a solicitar")
+
+$cuerpo = @{
+  idCliente = $idCliente
+  observaciones = "Prueba del flujo de pedidos y ventas"
+  detalles = @(
+    @{
+      idProducto = $idProducto
+      cantidadPiezas = 1
+      kilosSolicitados = $kilos
+    }
+  )
+} | ConvertTo-Json -Depth 5
+
+$alta = Invoke-RestMethod `
+  -Uri "$base/api/pedidos" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $cuerpo
+$idPedido = [int]$alta.data.idPedido
+
+Invoke-RestMethod -Uri "$base/api/pedidos" -Method Get
+Invoke-RestMethod -Uri "$base/api/stock" -Method Get
+```
+
+Verificar en la respuesta de pedidos que el nuevo pedido esté `Pendiente` y que
+sus detalles tengan asignaciones FIFO. En stock, `stockDisponible` debe bajar
+por la reserva; `lote.kilosDisponibles` todavía no se descuenta al crear el
+pedido.
+
+Para el primer pedido, liberarlo y consultar nuevamente:
+
+```powershell
+$cuerpoEstado = @{ estado = "Cancelado" } | ConvertTo-Json
+Invoke-RestMethod `
+  -Uri "$base/api/pedidos/$idPedido" `
+  -Method Patch `
+  -ContentType "application/json" `
+  -Body $cuerpoEstado
+Invoke-RestMethod -Uri "$base/api/stock" -Method Get
+```
+
+El estado debe ser `Cancelado`; las filas de `asignacion_lote` se conservan
+para trazabilidad, pero dejan de contarse como reserva y el stock disponible
+vuelve a reflejar esos kilos.
+
+Para el segundo pedido, guardar el ID devuelto al crearlo y avanzar los estados
+en orden:
+
+```powershell
+foreach ($estado in @("En preparación", "Preparado")) {
+  $cuerpoEstado = @{ estado = $estado } | ConvertTo-Json
+  Invoke-RestMethod `
+    -Uri "$base/api/pedidos/$idPedido" `
+    -Method Patch `
+    -ContentType "application/json" `
+    -Body $cuerpoEstado
+}
+
+$venta = Invoke-RestMethod `
+  -Uri "$base/api/pedidos/$idPedido/confirmar" `
+  -Method Post
+Invoke-RestMethod -Uri "$base/api/ventas" -Method Get
+Invoke-RestMethod -Uri "$base/api/stock" -Method Get
+```
+
+La respuesta de confirmación debe incluir `idVenta`, `idPedido`,
+`numeroFactura`, `fechaVenta` y `total`. En ventas debe aparecer una sola fila
+para ese pedido, junto con el cliente y sus detalles. En stock,
+`kilosDisponibles` debe reflejar el descuento de las asignaciones y el pedido
+`Confirmado` ya no debe sumar como reserva.
+
+Repetir `POST /api/pedidos/{idPedido}/confirmar`: debe responder `409 Conflict`
+y `GET /api/ventas` debe seguir mostrando una sola venta para ese pedido. Como
+casos negativos, enviar un cuerpo incompleto a `POST /api/pedidos` debe
+responder `400`; solicitar más kilos que el stock asignable debe fallar sin
+dejar pedido ni reserva parcial. Las consultas GET deben responder con
+`data: []` cuando no haya filas y con el formato de error estandarizado si falla
+la consulta.
+
+### Estado de verificación de este entorno
+
+Se verificaron contra la aplicación local las entradas inválidas de
+`POST /api/pedidos`, `PATCH /api/pedidos/no-valido` y
+`POST /api/pedidos/no-valido/confirmar`: las tres respondieron `400` con
+`success: false`. `GET /api/health` respondió, pero informó
+`reachable_with_notice`; `GET /api/stock`, `GET /api/pedidos` y `GET /api/ventas`
+fallaron con `TypeError: fetch failed`. No hay PostgreSQL local disponible
+(`psql` no está instalado, el puerto local `54322` no responde y Docker no
+tiene un daemon activo), así que no se ejecutó el flujo de escritura ni se
+puede afirmar que las funciones SQL estén aplicadas o validadas contra la
+base. Repetir la prueba manual luego de restablecer la conectividad y aplicar
+los cuatro archivos SQL.
