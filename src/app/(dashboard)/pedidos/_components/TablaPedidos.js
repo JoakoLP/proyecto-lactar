@@ -45,6 +45,16 @@ export default function TablaPedidos({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 ">
+            {pedidos.length === 0 && (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="px-4 py-6 text-center text-gray-500"
+                >
+                  No hay pedidos registrados.
+                </td>
+              </tr>
+            )}
             {pedidos.map((pedido) => {
               const kilos = pedido.detalles.reduce(
                 (total, detalle) => total + detalle.kilos,

@@ -1,10 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getClientes } from "@/services/clientes";
+import { getPedidos, createPedido } from "@/services/pedidos";
+import { getProductos } from "@/services/productos";
+import { getStock } from "@/services/stock";
 import FormularioPedido from "./FormularioPedido";
 import TablaPedidos from "./TablaPedidos";
 
 const ESTADOS_EDITABLES = ["Pendiente", "En preparación", "Preparado"];
+
+function mapearPedido(pedido) {
+  return {
+    idPedido: pedido.idPedido,
+    fecha: new Date(`${pedido.fecha}T00:00:00`).toLocaleDateString("es-AR"),
+    cliente: pedido.cliente.razonSocial,
+    estado: pedido.estado_pedido.nombre,
+    observaciones: pedido.observaciones || "",
+    detalles: (pedido.detalle_pedido ?? []).map((detalle) => ({
+      idProducto: detalle.producto.idProducto,
+      producto: detalle.producto.nombre,
+      kilos: Number(detalle.kilosSolicitados),
+      precioKg: Number(detalle.precioKg),
+      cantidadPiezas: Number(detalle.cantidadPiezas),
+      asignaciones: detalle.asignacion_lote ?? [],
+    })),
+  };
+}
+
 function obtenerKilosTotales(detalles) {
   return detalles.reduce((total, detalle) => total + detalle.kilos, 0);
 }
@@ -42,33 +65,64 @@ function ajustarReserva(lotes, pedidos, multiplicador = 1) {
   return resultado;
 }
 
-export default function ClientePedidos({
-  clientes,
-  productos,
-  lotesIniciales,
-  pedidosIniciales,
-}) {
-  const [lotes, establecerLotes] = useState(() =>
-    ajustarReserva(
-      lotesIniciales,
-      pedidosIniciales.filter((pedido) =>
-        ESTADOS_EDITABLES.includes(pedido.estado),
-      ),
-    ),
-  );
-  const [pedidos, establecerPedidos] = useState(pedidosIniciales);
+export default function ClientePedidos() {
+  const [clientes, establecerClientes] = useState([]);
+  const [productos, establecerProductos] = useState([]);
+  const [lotes, establecerLotes] = useState([]);
+  const [pedidos, establecerPedidos] = useState([]);
   const [ventas, establecerVentas] = useState([]);
   const [pestana, establecerPestana] = useState("pedidos");
   const [pedidoSeleccionado, establecerPedidoSeleccionado] = useState(null);
+  const [cargando, establecerCargando] = useState(true);
+  const [errorCarga, establecerErrorCarga] = useState("");
+  const [intentoCarga, establecerIntentoCarga] = useState(0);
+  const [pedidoEnviando, establecerPedidoEnviando] = useState(false);
   const [formulario, establecerFormulario] = useState({
     cliente: "",
-    producto: productos[0].nombre,
+    producto: "",
     kilos: "",
     observaciones: "",
   });
   const [detalles, establecerDetalles] = useState([]);
   const [error, establecerError] = useState("");
   const [aviso, establecerAviso] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    Promise.all([
+      getClientes({ signal: controller.signal }),
+      getProductos({ signal: controller.signal }),
+      getPedidos({ signal: controller.signal }),
+      getStock({ signal: controller.signal }),
+    ])
+      .then(([clientesRecibidos, productosRecibidos, pedidosRecibidos, lotes]) => {
+        if (controller.signal.aborted) return;
+
+        establecerClientes(
+          clientesRecibidos.filter((cliente) => cliente.estado === "Activo"),
+        );
+        establecerProductos(productosRecibidos);
+        establecerPedidos(pedidosRecibidos.map(mapearPedido));
+        establecerLotes(lotes);
+        establecerFormulario((actual) => ({
+          ...actual,
+          producto: productosRecibidos[0]?.idProducto?.toString() ?? "",
+        }));
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted && error.name !== "AbortError") {
+          establecerErrorCarga(error.message);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          establecerCargando(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [intentoCarga]);
 
   function actualizarCampo(evento) {
     establecerFormulario((actual) => ({
@@ -82,14 +136,14 @@ export default function ClientePedidos({
   function agregarDetalle() {
     const kilos = Number(formulario.kilos);
     const producto = productos.find(
-      (item) => item.nombre === formulario.producto,
+      (item) => String(item.idProducto) === formulario.producto,
     );
     if (!producto || !Number.isFinite(kilos) || kilos <= 0) {
       establecerError("Ingresá una cantidad de kilos mayor a 0.");
       return;
     }
     const kilosExistentes = detalles
-      .filter((detalle) => detalle.producto === producto.nombre)
+      .filter((detalle) => detalle.idProducto === producto.idProducto)
       .reduce((total, detalle) => total + detalle.kilos, 0);
     if (kilosExistentes + kilos > obtenerStock(lotes, producto.nombre)) {
       establecerError(
@@ -99,14 +153,20 @@ export default function ClientePedidos({
     }
     establecerDetalles((actuales) => [
       ...actuales,
-      { producto: producto.nombre, kilos, precioKg: producto.precioKg },
+      {
+        idProducto: producto.idProducto,
+        producto: producto.nombre,
+        kilos,
+        precioKg: producto.precioKg,
+      },
     ]);
     establecerFormulario((actual) => ({ ...actual, kilos: "" }));
     establecerError("");
   }
 
-  function guardarPedido(evento) {
+  async function guardarPedido(evento) {
     evento.preventDefault();
+    if (pedidoEnviando) return;
     if (!formulario.cliente) {
       establecerError("Seleccioná un cliente para continuar.");
       return;
@@ -115,27 +175,51 @@ export default function ClientePedidos({
       establecerError("Agregá al menos un producto al pedido.");
       return;
     }
-    const pedido = {
-      idPedido: Math.max(...pedidos.map((item) => item.idPedido), 1000) + 1,
-      fecha: new Intl.DateTimeFormat("es-AR").format(new Date()),
-      cliente: formulario.cliente,
-      estado: "Pendiente",
-      observaciones: formulario.observaciones,
-      detalles,
-    };
-    establecerLotes((actuales) => ajustarReserva(actuales, [pedido]));
-    establecerPedidos((actuales) => [pedido, ...actuales]);
-    establecerFormulario({
-      cliente: "",
-      producto: productos[0].nombre,
-      kilos: "",
-      observaciones: "",
-    });
-    establecerDetalles([]);
-    establecerAviso(
-      `Pedido #${pedido.idPedido} guardado y kilos reservados correctamente.`,
-    );
-    establecerPestana("pedidos");
+    establecerPedidoEnviando(true);
+    establecerError("");
+    establecerAviso("");
+
+    let pedidoCreado;
+    try {
+      pedidoCreado = await createPedido({
+        idCliente: Number(formulario.cliente),
+        observaciones: formulario.observaciones,
+        detalles: detalles.map((detalle) => ({
+          idProducto: detalle.idProducto,
+          cantidadPiezas: detalle.cantidadPiezas ?? 1,
+          kilosSolicitados: detalle.kilos,
+        })),
+      });
+
+      establecerFormulario({
+        cliente: "",
+        producto: productos[0]?.idProducto?.toString() ?? "",
+        kilos: "",
+        observaciones: "",
+      });
+      establecerDetalles([]);
+      establecerAviso(
+        `Pedido #${pedidoCreado.idPedido} guardado y kilos reservados correctamente.`,
+      );
+      establecerPestana("pedidos");
+
+      try {
+        const [pedidosActualizados, lotesActualizados] = await Promise.all([
+          getPedidos(),
+          getStock(),
+        ]);
+        establecerPedidos(pedidosActualizados.map(mapearPedido));
+        establecerLotes(lotesActualizados);
+      } catch (errorActualizacion) {
+        establecerError(
+          `El pedido #${pedidoCreado.idPedido} se registró, pero no se pudo actualizar la vista: ${errorActualizacion.message}`,
+        );
+      }
+    } catch (error) {
+      establecerError(error.message);
+    } finally {
+      establecerPedidoEnviando(false);
+    }
   }
 
   function cambiarEstadoPedido(idPedido, nuevoEstado) {
@@ -225,48 +309,75 @@ export default function ClientePedidos({
           Ventas confirmadas
         </button>
       </nav>
-      {aviso && (
-        <p
-          role="status"
-          aria-live="polite"
-          className="rounded-md bg-green-50 p-3 text-sm font-medium text-green-700"
-        >
-          {aviso}
+      {cargando ? (
+        <p role="status" aria-live="polite" className="text-sm text-gray-600">
+          Cargando clientes, productos, pedidos y stock...
         </p>
-      )}
-      {pestana === "pedidos" ? (
+      ) : errorCarga ? (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+        >
+          <p>No se pudieron cargar los datos: {errorCarga}</p>
+          <button
+            type="button"
+            onClick={() => {
+              establecerErrorCarga("");
+              establecerCargando(true);
+              establecerIntentoCarga((actual) => actual + 1);
+            }}
+            className="mt-3 rounded-lg bg-red-700 px-4 py-2 font-semibold text-white hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-700 focus:ring-offset-2"
+          >
+            Reintentar
+          </button>
+        </div>
+      ) : (
         <>
-          <FormularioPedido
-            clientes={clientes}
-            productos={productos}
-            formulario={formulario}
-            detalles={detalles}
-            total={obtenerTotal(detalles)}
-            error={error}
-            aviso=""
-            alCambiar={actualizarCampo}
-            alAgregarDetalle={agregarDetalle}
-            alQuitarDetalle={(indice) =>
-              establecerDetalles((actuales) =>
-                actuales.filter((_, actual) => actual !== indice),
-              )
-            }
-            alEnviar={guardarPedido}
-          />
-          <TablaPedidos
-            pedidos={pedidos}
-            alSeleccionar={establecerPedidoSeleccionado}
-            pedidoSeleccionado={pedidoSeleccionado}
-          />
-          {pedidoActivo && (
-            <DetallePedido
-              pedido={pedidoActivo}
-              alCambiarEstado={cambiarEstadoPedido}
-            />
+          {aviso && (
+            <p
+              role="status"
+              aria-live="polite"
+              className="rounded-md bg-green-50 p-3 text-sm font-medium text-green-700"
+            >
+              {aviso}
+            </p>
+          )}
+          {pestana === "pedidos" ? (
+            <>
+              <FormularioPedido
+                clientes={clientes}
+                productos={productos}
+                formulario={formulario}
+                detalles={detalles}
+                total={obtenerTotal(detalles)}
+                error={error}
+                aviso=""
+                enviando={pedidoEnviando}
+                alCambiar={actualizarCampo}
+                alAgregarDetalle={agregarDetalle}
+                alQuitarDetalle={(indice) =>
+                  establecerDetalles((actuales) =>
+                    actuales.filter((_, actual) => actual !== indice),
+                  )
+                }
+                alEnviar={guardarPedido}
+              />
+              <TablaPedidos
+                pedidos={pedidos}
+                alSeleccionar={establecerPedidoSeleccionado}
+                pedidoSeleccionado={pedidoSeleccionado}
+              />
+              {pedidoActivo && (
+                <DetallePedido
+                  pedido={pedidoActivo}
+                  alCambiarEstado={cambiarEstadoPedido}
+                />
+              )}
+            </>
+          ) : (
+            <TablaVentas ventas={ventas} />
           )}
         </>
-      ) : (
-        <TablaVentas ventas={ventas} />
       )}
     </div>
   );
