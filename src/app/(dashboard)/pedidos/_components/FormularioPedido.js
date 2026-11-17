@@ -9,6 +9,7 @@ export default function FormularioPedido({
   total,
   error,
   aviso,
+  enviando,
   alCambiar,
   alAgregarDetalle,
   alQuitarDetalle,
@@ -33,10 +34,17 @@ export default function FormularioPedido({
               onChange={alCambiar}
               className={CLASE_ENTRADA}
               required
+              disabled={clientes.length === 0 || enviando}
             >
-              <option value="">Seleccionar cliente</option>
+              <option value="">
+                {clientes.length > 0
+                  ? "Seleccionar cliente"
+                  : "No hay clientes activos"}
+              </option>
               {clientes.map((cliente) => (
-                <option key={cliente}>{cliente}</option>
+                <option key={cliente.id} value={cliente.id}>
+                  {cliente.razonSocial}
+                </option>
               ))}
             </select>
           </Campo>
@@ -49,6 +57,7 @@ export default function FormularioPedido({
               maxLength="200"
               placeholder="Opcional"
               className={CLASE_ENTRADA}
+              disabled={enviando}
             />
           </Campo>
         </div>
@@ -63,13 +72,22 @@ export default function FormularioPedido({
                 value={formulario.producto}
                 onChange={alCambiar}
                 className={CLASE_ENTRADA}
+                required
+                disabled={productos.length === 0 || enviando}
               >
-                {productos.map((producto) => (
-                  <option key={producto.nombre} value={producto.nombre}>
-                    {producto.nombre} - $
-                    {producto.precioKg.toLocaleString("es-AR")}/kg
-                  </option>
-                ))}
+                {productos.length === 0 ? (
+                  <option value="">No hay productos disponibles</option>
+                ) : (
+                  productos.map((producto) => (
+                    <option
+                      key={producto.idProducto}
+                      value={producto.idProducto}
+                    >
+                      {producto.nombre} - $
+                      {producto.precioKg.toLocaleString("es-AR")}/kg
+                    </option>
+                  ))
+                )}
               </select>
             </Campo>
             <Campo etiqueta="Cantidad" id="kilosPedido">
@@ -84,12 +102,14 @@ export default function FormularioPedido({
                 onChange={alCambiar}
                 className={CLASE_ENTRADA}
                 required
+                disabled={productos.length === 0 || enviando}
               />
             </Campo>
             <button
               type="button"
               onClick={alAgregarDetalle}
-              className="rounded-lg bg-blue-100 px-4 py-2.5 font-bold text-blue-800 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={productos.length === 0 || enviando}
+              className="rounded-lg bg-blue-100 px-4 py-2.5 font-bold text-blue-800 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Agregar producto
             </button>
@@ -127,7 +147,8 @@ export default function FormularioPedido({
                         <button
                           type="button"
                           onClick={() => alQuitarDetalle(indice)}
-                          className="font-bold text-red-700 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-red-500"
+                          disabled={enviando}
+                          className="font-bold text-red-700 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Quitar
                         </button>
@@ -148,9 +169,12 @@ export default function FormularioPedido({
           </p>
           <button
             type="submit"
-            className="rounded-lg bg-lactarBlue px-5 py-2.5 font-bold text-white shadow-sm hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            disabled={
+              enviando || clientes.length === 0 || productos.length === 0
+            }
+            className="rounded-lg bg-lactarBlue px-5 py-2.5 font-bold text-white shadow-sm hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Guardar y reservar kilos
+            {enviando ? "Guardando pedido..." : "Guardar y reservar kilos"}
           </button>
         </div>
       </form>
