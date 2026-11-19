@@ -73,7 +73,7 @@ export async function toggleEstadoUsuario(idUsuario, activo) {
   return result.data;
 }
 
-export async function darDeBajaUsuario(idUsuario) {
+export async function deleteUsuario(idUsuario) {
   const result = await requestUsuarios(`/api/usuarios/${idUsuario}`, {
     method: "DELETE",
   });

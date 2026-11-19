@@ -1,6 +1,8 @@
 import { supabase } from "@/services/supabase";
 import { apiError, apiSuccess } from "@/utils/apiResponse";
+import { requireAuth } from "@/utils/authServer";
 import { hashPassword } from "@/utils/password";
+import { ROLES } from "@/utils/permissions";
 import {
   formatUsuarioResponse,
   validateUsuarioPayload,
@@ -9,7 +11,7 @@ import {
 export const dynamic = "force-dynamic";
 
 const SELECT_USUARIO =
-  "idUsuario, nombre, apellido, nombreUsuario, email, activo, rol(idRol, nombre)";
+  "idUsuario, nombre, apellido, nombreUsuario, email, activo, esSistema, rol(idRol, nombre)";
 
 async function resolveRolId(rolInput) {
   const query = supabase.from("rol").select("idRol, nombre");
@@ -43,11 +45,15 @@ function getDuplicateUsuarioMessage(error) {
   return "Ya existe un usuario con ese nombre de usuario o correo electrónico.";
 }
 
-export async function GET() {
+export async function GET(request) {
+  const auth = await requireAuth(request, { roles: [ROLES.ADMIN] });
+  if (auth.errorResponse) return auth.errorResponse;
+
   try {
     const { data, error } = await supabase
       .from("usuario")
       .select(SELECT_USUARIO)
+      .eq("esSistema", 0)
       .order("idUsuario", { ascending: true });
 
     if (error) {
@@ -64,6 +70,9 @@ export async function GET() {
 }
 
 export async function POST(request) {
+  const auth = await requireAuth(request, { roles: [ROLES.ADMIN] });
+  if (auth.errorResponse) return auth.errorResponse;
+
   let payload;
   try {
     payload = await request.json();
@@ -94,6 +103,7 @@ export async function POST(request) {
           email: validation.data.email,
           password: passwordHash,
           activo: validation.data.activo,
+          esSistema: 0,
           rol: rolResult.idRol,
         },
       ])

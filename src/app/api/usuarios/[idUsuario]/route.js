@@ -1,6 +1,8 @@
 import { supabase } from "@/services/supabase";
 import { apiError, apiSuccess } from "@/utils/apiResponse";
+import { requireAuth } from "@/utils/authServer";
 import { hashPassword } from "@/utils/password";
+import { ROLES } from "@/utils/permissions";
 import {
   formatUsuarioResponse,
   validateUsuarioPayload,
@@ -9,7 +11,7 @@ import {
 export const dynamic = "force-dynamic";
 
 const SELECT_USUARIO =
-  "idUsuario, nombre, apellido, nombreUsuario, email, activo, rol(idRol, nombre)";
+  "idUsuario, nombre, apellido, nombreUsuario, email, activo, esSistema, rol(idRol, nombre)";
 
 function parseUsuarioId(value) {
   if (typeof value !== "string" || !/^\d+$/.test(value)) return null;
@@ -20,6 +22,14 @@ function parseUsuarioId(value) {
 async function getUsuarioId(context) {
   const { idUsuario } = await context.params;
   return parseUsuarioId(idUsuario);
+}
+
+async function fetchTargetUser(idUsuario) {
+  return supabase
+    .from("usuario")
+    .select(SELECT_USUARIO)
+    .eq("idUsuario", idUsuario)
+    .maybeSingle();
 }
 
 async function resolveRolId(rolInput) {
@@ -54,24 +64,29 @@ function getDuplicateUsuarioMessage(error) {
   return "Ya existe otro usuario con ese nombre de usuario o correo electrónico.";
 }
 
-export async function GET(_request, context) {
+export async function GET(request, context) {
+  const auth = await requireAuth(request, { roles: [ROLES.ADMIN] });
+  if (auth.errorResponse) return auth.errorResponse;
+
   const idUsuario = await getUsuarioId(context);
   if (!idUsuario) {
     return apiError("El identificador del usuario no es válido.", 400);
   }
 
   try {
-    const { data, error } = await supabase
-      .from("usuario")
-      .select(SELECT_USUARIO)
-      .eq("idUsuario", idUsuario)
-      .maybeSingle();
+    const { data, error } = await fetchTargetUser(idUsuario);
 
     if (error) {
       return apiError("Error al consultar el usuario.", 500, error.message);
     }
     if (!data) {
       return apiError("No se encontró el usuario solicitado.", 404);
+    }
+    if (Number(data.esSistema ?? 0) === 1) {
+      return apiError(
+        "La cuenta de administración del sistema no puede consultarse ni editarse desde este módulo.",
+        403
+      );
     }
 
     return apiSuccess(formatUsuarioResponse(data), "Usuario obtenido correctamente.");
@@ -81,6 +96,9 @@ export async function GET(_request, context) {
 }
 
 async function handleUpdate(request, context) {
+  const auth = await requireAuth(request, { roles: [ROLES.ADMIN] });
+  if (auth.errorResponse) return auth.errorResponse;
+
   const idUsuario = await getUsuarioId(context);
   if (!idUsuario) {
     return apiError("El identificador del usuario no es válido.", 400);
@@ -99,6 +117,24 @@ async function handleUpdate(request, context) {
   }
 
   try {
+    const existing = await fetchTargetUser(idUsuario);
+    if (existing.error) {
+      return apiError("Error al verificar el usuario.", 500, existing.error.message);
+    }
+    if (!existing.data) {
+      return apiError("No se encontró el usuario solicitado.", 404);
+    }
+    if (Number(existing.data.esSistema ?? 0) === 1) {
+      return apiError(
+        "La cuenta de administración del sistema está protegida y no puede modificarse desde el frontend.",
+        403
+      );
+    }
+
+    if (idUsuario === auth.user.idUsuario && validation.data.activo === 0) {
+      return apiError("No podés desactivar tu propio usuario mientras estás en sesión.", 400);
+    }
+
     const updateData = {};
 
     if (validation.data.nombre !== undefined) updateData.nombre = validation.data.nombre;
@@ -113,6 +149,9 @@ async function handleUpdate(request, context) {
       const rolResult = await resolveRolId(validation.data.rolInput);
       if (rolResult.error) {
         return apiError(rolResult.error, rolResult.status, rolResult.details ?? null);
+      }
+      if (idUsuario === auth.user.idUsuario && rolResult.idRol !== auth.user.idRol) {
+        return apiError("No podés cambiar tu propio rol mientras estás en sesión.", 400);
       }
       updateData.rol = rolResult.idRol;
     }
@@ -153,34 +192,59 @@ export async function PATCH(request, context) {
 }
 
 /**
- * Baja lógica obligatoria (AGENTS.md): los usuarios no se eliminan físicamente.
+ * Eliminación física habilitada exclusivamente para Administradores (verificación de rol en BD).
+ * Protege la cuenta maestra (esSistema = 1), la propia sesión y registros referenciados en FK.
  */
-export async function DELETE(_request, context) {
+export async function DELETE(request, context) {
+  const auth = await requireAuth(request, { roles: [ROLES.ADMIN], verifyInDb: true });
+  if (auth.errorResponse) return auth.errorResponse;
+
   const idUsuario = await getUsuarioId(context);
   if (!idUsuario) {
     return apiError("El identificador del usuario no es válido.", 400);
   }
 
+  if (idUsuario === auth.user.idUsuario) {
+    return apiError("No podés eliminar tu propio usuario mientras estás en sesión.", 400);
+  }
+
   try {
+    const existing = await fetchTargetUser(idUsuario);
+    if (existing.error) {
+      return apiError("Error al verificar el usuario.", 500, existing.error.message);
+    }
+    if (!existing.data) {
+      return apiError("No se encontró el usuario solicitado.", 404);
+    }
+    if (Number(existing.data.esSistema ?? 0) === 1) {
+      return apiError(
+        "La cuenta de administración del sistema está protegida y no puede eliminarse.",
+        403
+      );
+    }
+
     const { data, error } = await supabase
       .from("usuario")
-      .update({ activo: 0 })
+      .delete()
       .eq("idUsuario", idUsuario)
-      .select(SELECT_USUARIO)
+      .select("idUsuario, nombreUsuario")
       .maybeSingle();
 
+    if (error?.code === "23503") {
+      return apiError(
+        "No se puede eliminar este usuario porque tiene lotes o cobranzas asociadas en el historial. Podés desactivarlo en su lugar.",
+        409
+      );
+    }
     if (error) {
-      return apiError("No se pudo dar de baja al usuario.", 500, error.message);
+      return apiError("No se pudo eliminar el usuario.", 500, error.message);
     }
     if (!data) {
       return apiError("No se encontró el usuario solicitado.", 404);
     }
 
-    return apiSuccess(
-      formatUsuarioResponse(data),
-      "Usuario desactivado mediante baja lógica (la eliminación física está bloqueada)."
-    );
+    return apiSuccess(data, "Usuario eliminado correctamente.");
   } catch (error) {
-    return apiError("Error interno al dar de baja al usuario.", 500, error.message);
+    return apiError("Error interno al eliminar el usuario.", 500, error.message);
   }
 }
