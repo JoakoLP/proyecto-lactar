@@ -1,10 +1,17 @@
 import { supabase } from "@/services/supabase";
 import { apiError, apiSuccess } from "@/utils/apiResponse";
+import { requireAuth } from "@/utils/authServer";
 import { validateClientePayload } from "@/utils/clienteValidation";
+import { ROLES } from "@/utils/permissions";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+const CLIENTES_ROLES = [ROLES.ADMIN, ROLES.VENDEDOR];
+
+export async function GET(request) {
+  const auth = await requireAuth(request, { roles: CLIENTES_ROLES });
+  if (auth.errorResponse) return auth.errorResponse;
+
   try {
     const { data, error } = await supabase
       .from("cliente")
@@ -22,6 +29,9 @@ export async function GET() {
 }
 
 export async function POST(request) {
+  const auth = await requireAuth(request, { roles: CLIENTES_ROLES });
+  if (auth.errorResponse) return auth.errorResponse;
+
   let payload;
   try {
     payload = await request.json();

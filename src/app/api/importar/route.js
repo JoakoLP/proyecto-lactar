@@ -3,7 +3,9 @@ import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { supabase } from "@/services/supabase";
 import { apiError, apiSuccess } from "@/utils/apiResponse";
+import { requireAuth } from "@/utils/authServer";
 import { hashPassword } from "@/utils/password";
+import { ROLES } from "@/utils/permissions";
 import {
   ENTIDADES_IMPORTACION,
   validateImportRows,
@@ -234,6 +236,9 @@ async function importUsuarios(validRows) {
 }
 
 export async function POST(request) {
+  const auth = await requireAuth(request, { roles: [ROLES.ADMIN] });
+  if (auth.errorResponse) return auth.errorResponse;
+
   let formData;
   try {
     formData = await request.formData();

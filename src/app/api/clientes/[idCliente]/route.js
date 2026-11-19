@@ -1,8 +1,12 @@
 import { supabase } from "@/services/supabase";
 import { apiError, apiSuccess } from "@/utils/apiResponse";
+import { requireAuth } from "@/utils/authServer";
 import { validateClientePayload } from "@/utils/clienteValidation";
+import { ROLES } from "@/utils/permissions";
 
 export const dynamic = "force-dynamic";
+
+const CLIENTES_ROLES = [ROLES.ADMIN, ROLES.VENDEDOR];
 
 function parseClienteId(value) {
   if (!/^\d+$/.test(value)) return null;
@@ -16,7 +20,10 @@ async function getClienteId(context) {
   return parseClienteId(idCliente);
 }
 
-export async function GET(_request, context) {
+export async function GET(request, context) {
+  const auth = await requireAuth(request, { roles: CLIENTES_ROLES });
+  if (auth.errorResponse) return auth.errorResponse;
+
   const idCliente = await getClienteId(context);
   if (!idCliente) {
     return apiError("El identificador del cliente no es válido.", 400);
@@ -43,6 +50,9 @@ export async function GET(_request, context) {
 }
 
 export async function PUT(request, context) {
+  const auth = await requireAuth(request, { roles: CLIENTES_ROLES });
+  if (auth.errorResponse) return auth.errorResponse;
+
   const idCliente = await getClienteId(context);
   if (!idCliente) {
     return apiError("El identificador del cliente no es válido.", 400);
@@ -84,7 +94,10 @@ export async function PUT(request, context) {
   }
 }
 
-export async function DELETE(_request, context) {
+export async function DELETE(request, context) {
+  const auth = await requireAuth(request, { roles: CLIENTES_ROLES });
+  if (auth.errorResponse) return auth.errorResponse;
+
   const idCliente = await getClienteId(context);
   if (!idCliente) {
     return apiError("El identificador del cliente no es válido.", 400);

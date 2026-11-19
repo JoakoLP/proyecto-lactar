@@ -1,5 +1,7 @@
 import { supabase } from "@/services/supabase";
 import { apiError, apiSuccess } from "@/utils/apiResponse";
+import { requireAuth } from "@/utils/authServer";
+import { ROLES } from "@/utils/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -147,6 +149,9 @@ function buildRendimientoHistorico(lotesPeriodo, { dias, fechaDesde, fechaHasta 
 }
 
 export async function GET(request) {
+  const auth = await requireAuth(request, { roles: [ROLES.ADMIN] });
+  if (auth.errorResponse) return auth.errorResponse;
+
   const { searchParams } = new URL(request.url);
   const diasParam = searchParams.get("dias") || "30";
   const periodoConfig = PERIODOS_PERMITIDOS.get(diasParam);

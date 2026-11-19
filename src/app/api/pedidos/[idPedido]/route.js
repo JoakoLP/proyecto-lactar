@@ -1,9 +1,12 @@
 import { supabase } from "@/services/supabase";
 import { apiError, apiSuccess } from "@/utils/apiResponse";
+import { requireAuth } from "@/utils/authServer";
+import { ROLES } from "@/utils/permissions";
 
 export const dynamic = "force-dynamic";
 
 const ESTADOS_PERMITIDOS = ["En preparación", "Preparado", "Cancelado"];
+const PEDIDOS_ROLES = [ROLES.ADMIN, ROLES.VENDEDOR];
 
 function parsePedidoId(valor) {
   if (typeof valor !== "string" || !/^\d+$/.test(valor)) return null;
@@ -13,6 +16,9 @@ function parsePedidoId(valor) {
 }
 
 export async function PATCH(request, context) {
+  const auth = await requireAuth(request, { roles: PEDIDOS_ROLES });
+  if (auth.errorResponse) return auth.errorResponse;
+
   const { idPedido: valorIdPedido } = await context.params;
   const idPedido = parsePedidoId(valorIdPedido);
   if (!idPedido) {
