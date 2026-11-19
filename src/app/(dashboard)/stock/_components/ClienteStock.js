@@ -1,42 +1,63 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getProductos } from "@/services/productos";
 import { getStock } from "@/services/stock";
 import TablaStock from "./TablaStock";
 
-function calcularResumen(lotes) {
-  return lotes.reduce((resumen, lote) => {
-    const existente = resumen.find(
-      (producto) => producto.nombre === lote.producto,
-    );
+function calcularResumen(lotes, catalogoProductos, filtroProducto) {
+  const mapa = new Map();
+
+  for (const prod of catalogoProductos) {
+    if (filtroProducto !== "Todos" && prod.nombre !== filtroProducto) continue;
+    mapa.set(prod.nombre, {
+      nombre: prod.nombre,
+      kilos: 0,
+      lotes: 0,
+    });
+  }
+
+  for (const lote of lotes) {
+    if (filtroProducto !== "Todos" && lote.producto !== filtroProducto) continue;
+    const existente = mapa.get(lote.producto);
     if (existente) {
       existente.kilos += lote.stockDisponible;
       existente.lotes += 1;
     } else {
-      resumen.push({
+      mapa.set(lote.producto, {
         nombre: lote.producto,
         kilos: lote.stockDisponible,
         lotes: 1,
       });
     }
-    return resumen;
-  }, []);
+  }
+
+  return Array.from(mapa.values()).sort((a, b) => {
+    if (b.kilos !== a.kilos) return b.kilos - a.kilos;
+    return a.nombre.localeCompare(b.nombre, "es");
+  });
 }
 
 export default function ClienteStock() {
   const [lotes, establecerLotes] = useState([]);
+  const [catalogoProductos, establecerCatalogoProductos] = useState([]);
   const [cargando, establecerCargando] = useState(true);
   const [error, establecerError] = useState("");
   const [intento, establecerIntento] = useState(0);
   const [filtroProducto, establecerFiltroProducto] = useState("Todos");
+  const [mostrarSinStock, establecerMostrarSinStock] = useState(true);
 
   useEffect(() => {
     const controller = new AbortController();
 
-    getStock({ signal: controller.signal })
-      .then((lotes) => {
+    Promise.all([
+      getStock({ signal: controller.signal }),
+      getProductos({ signal: controller.signal }),
+    ])
+      .then(([lotesRecibidos, productosRecibidos]) => {
         if (!controller.signal.aborted) {
-          establecerLotes(lotes);
+          establecerLotes(lotesRecibidos);
+          establecerCatalogoProductos(productosRecibidos);
         }
       })
       .catch((error) => {
@@ -53,17 +74,30 @@ export default function ClienteStock() {
     return () => controller.abort();
   }, [intento]);
 
-  const productos = [
-    "Todos",
-    ...new Set(lotes.map((lote) => lote.producto)),
-  ];
+  const nombresProductos = Array.from(
+    new Set([
+      ...catalogoProductos.map((producto) => producto.nombre),
+      ...lotes.map((lote) => lote.producto),
+    ]),
+  ).sort((a, b) => a.localeCompare(b, "es"));
+
+  const productos = ["Todos", ...nombresProductos];
   const lotesFiltrados = lotes.filter(
     (lote) => filtroProducto === "Todos" || lote.producto === filtroProducto,
   );
   const lotesConStock = lotesFiltrados.filter(
     (lote) => lote.stockDisponible > 0,
   );
-  const resumen = calcularResumen(lotesConStock);
+  const resumen = calcularResumen(
+    lotesConStock,
+    catalogoProductos,
+    filtroProducto,
+  );
+  const cantidadSinStock = resumen.filter((p) => p.kilos <= 0).length;
+  const resumenVisible = mostrarSinStock
+    ? resumen
+    : resumen.filter((p) => p.kilos > 0);
+  const productosConStockCount = resumen.filter((p) => p.kilos > 0).length;
   const kilosTotales = lotesFiltrados.reduce(
     (total, lote) => total + lote.stockDisponible,
     0,
@@ -106,13 +140,13 @@ export default function ClienteStock() {
             Reintentar
           </button>
         </div>
-      ) : lotes.length === 0 ? (
+      ) : lotes.length === 0 && catalogoProductos.length === 0 ? (
         <p
           role="status"
           aria-live="polite"
           className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600"
         >
-          No hay lotes con stock para mostrar.
+          No hay productos ni lotes con stock para mostrar.
         </p>
       ) : (
         <>
@@ -132,7 +166,7 @@ export default function ClienteStock() {
             />
             <Resumen
               titulo="Productos en stock"
-              valor={resumen.length}
+              valor={productosConStockCount}
               color="text-lactarDark"
             />
           </section>
@@ -145,46 +179,82 @@ export default function ClienteStock() {
                 </h3>
                 <p className="text-sm text-gray-500">
                   Los kilos reflejan el stock neto, luego de descontar las
-                  reservas.
+                  reservas. Incluye todos los productos registrados en catálogo.
                 </p>
               </div>
-              <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
-                Producto
-                <select
-                  value={filtroProducto}
-                  onChange={(evento) =>
-                    establecerFiltroProducto(evento.target.value)
-                  }
-                  className="rounded-lg border border-gray-300 p-2.5 font-normal text-black focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  aria-pressed={mostrarSinStock}
+                  onClick={() => establecerMostrarSinStock((actual) => !actual)}
+                  className={`rounded-lg border px-3 py-2 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    mostrarSinStock
+                      ? "border-blue-300 bg-blue-50 text-blue-800 hover:bg-blue-100"
+                      : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
                 >
-                  {productos.map((producto) => (
-                    <option key={producto}>{producto}</option>
-                  ))}
-                </select>
-              </label>
+                  {mostrarSinStock
+                    ? `Ocultar sin stock (${cantidadSinStock})`
+                    : `Mostrar sin stock (${cantidadSinStock})`}
+                </button>
+                <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
+                  Producto
+                  <select
+                    value={filtroProducto}
+                    onChange={(evento) =>
+                      establecerFiltroProducto(evento.target.value)
+                    }
+                    className="rounded-lg border border-gray-300 p-2.5 font-normal text-black focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                  >
+                    {productos.map((producto) => (
+                      <option key={producto}>{producto}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
             </div>
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-              {resumen.length > 0 ? (
-                resumen.map((producto) => (
-                  <div
-                    key={producto.nombre}
-                    className="rounded-lg border border-gray-200 bg-gray-50 p-4"
-                  >
-                    <p className="text-sm font-semibold text-gray-600">
-                      {producto.nombre}
-                    </p>
-                    <p className="mt-1 text-2xl font-bold text-lactarDark">
-                      {producto.kilos.toLocaleString("es-AR")} kg
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {producto.lotes}{" "}
-                      {producto.lotes === 1 ? "lote" : "lotes"}
-                    </p>
-                  </div>
-                ))
+              {resumenVisible.length > 0 ? (
+                resumenVisible.map((producto) => {
+                  const sinStock = producto.kilos <= 0;
+                  return (
+                    <div
+                      key={producto.nombre}
+                      className={`rounded-lg border p-4 ${
+                        sinStock
+                          ? "border-dashed border-gray-200 bg-gray-50/70"
+                          : "border-gray-200 bg-gray-50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-gray-700">
+                          {producto.nombre}
+                        </p>
+                        {sinStock && (
+                          <span className="rounded bg-gray-200 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
+                            Sin stock
+                          </span>
+                        )}
+                      </div>
+                      <p
+                        className={`mt-1 text-2xl font-bold ${
+                          sinStock ? "text-gray-400" : "text-lactarDark"
+                        }`}
+                      >
+                        {producto.kilos.toLocaleString("es-AR")} kg
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {producto.lotes}{" "}
+                        {producto.lotes === 1 ? "lote" : "lotes"}
+                      </p>
+                    </div>
+                  );
+                })
               ) : (
                 <p className="text-sm text-gray-600">
-                  No hay stock neto para el producto seleccionado.
+                  {resumen.length > 0 && !mostrarSinStock
+                    ? "No hay productos con stock neto para el filtro seleccionado. Activá «Mostrar sin stock» para verlos."
+                    : "No hay productos registrados para mostrar."}
                 </p>
               )}
             </div>
