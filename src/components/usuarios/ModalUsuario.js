@@ -1,61 +1,75 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
-export default function ModalUsuario({ isOpen, onClose, onSave, usuario }) {
-    const defaultData = {
-        nombre: "",
-        apellido: "",
-        nombreUsuario: "",
-        email: "",
-        password: "",
-        rol: "Operario",
-        activo: true,
-    };
+const DEFAULT_DATA = {
+    nombre: "",
+    apellido: "",
+    nombreUsuario: "",
+    email: "",
+    password: "",
+    rol: "Operario",
+    activo: true,
+};
 
-    const [formData, setFormData] = useState(defaultData);
-
-    useEffect(() => {
-        if (usuario) {
-            setFormData({ ...defaultData, ...usuario, password: "" }); // password vacío por seguridad al editar
-        } else {
-            setFormData(defaultData);
-        }
-    }, [usuario, isOpen]);
-
-    if (!isOpen) return null;
+function ModalUsuarioContenido({ onClose, onSave, usuario }) {
+    const [formData, setFormData] = useState(() =>
+        usuario
+            ? {
+                  ...DEFAULT_DATA,
+                  ...usuario,
+                  password: "",
+                  activo: Boolean(usuario.activo),
+              }
+            : DEFAULT_DATA
+    );
+    const [isSaving, setIsSaving] = useState(false);
+    const [submitError, setSubmitError] = useState("");
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
-        setFormData({
-            ...formData,
+        setFormData((prev) => ({
+            ...prev,
             [name]: type === "checkbox" ? checked : value,
-        });
+        }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        onSave(formData);
-        // Se elimina el setFormData aquí porque lo maneja el useEffect
-        onClose();
+        setSubmitError("");
+        setIsSaving(true);
+
+        try {
+            await onSave(formData);
+            onClose();
+        } catch (err) {
+            setSubmitError(err?.message || "No se pudo guardar el usuario.");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
-        <div 
-            className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm transition-opacity"
-            onClick={onClose}
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm transition-opacity p-4"
+            onClick={() => !isSaving && onClose()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-usuario-titulo"
         >
-            <div 
+            <div
                 className="bg-white rounded-xl shadow-2xl w-full max-w-lg border border-gray-200 overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-                    <h2 className="text-lg font-bold text-blue-900">
+                    <h2 id="modal-usuario-titulo" className="text-lg font-bold text-blue-900">
                         {usuario ? "Configurar Usuario" : "Añadir Nuevo Usuario"}
                     </h2>
                     <button
+                        type="button"
                         onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                        disabled={isSaving}
+                        className="text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50"
                         aria-label="Cerrar modal"
                     >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -63,55 +77,84 @@ export default function ModalUsuario({ isOpen, onClose, onSave, usuario }) {
                         </svg>
                     </button>
                 </div>
-                
+
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    {submitError && (
+                        <div
+                            role="alert"
+                            className="bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-3 text-sm font-medium"
+                        >
+                            {submitError}
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                            <label htmlFor="usuario-nombre" className="block text-sm font-medium text-gray-700 mb-1">
+                                Nombre
+                            </label>
                             <input
+                                id="usuario-nombre"
                                 type="text"
                                 name="nombre"
-                            value={formData.nombre || ""}
+                                value={formData.nombre || ""}
                                 onChange={handleChange}
                                 required
-                                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
+                                maxLength={50}
+                                disabled={isSaving}
+                                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 disabled:bg-gray-100"
                                 placeholder="Ej: Juan"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Apellido</label>
+                            <label htmlFor="usuario-apellido" className="block text-sm font-medium text-gray-700 mb-1">
+                                Apellido
+                            </label>
                             <input
+                                id="usuario-apellido"
                                 type="text"
                                 name="apellido"
                                 value={formData.apellido || ""}
                                 onChange={handleChange}
                                 required
-                                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
+                                maxLength={50}
+                                disabled={isSaving}
+                                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 disabled:bg-gray-100"
                                 placeholder="Ej: Pérez"
                             />
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de Usuario</label>
+                            <label htmlFor="usuario-username" className="block text-sm font-medium text-gray-700 mb-1">
+                                Nombre de Usuario
+                            </label>
                             <input
+                                id="usuario-username"
                                 type="text"
                                 name="nombreUsuario"
                                 value={formData.nombreUsuario || ""}
                                 onChange={handleChange}
                                 required
-                                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
+                                minLength={3}
+                                maxLength={30}
+                                disabled={isSaving}
+                                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 disabled:bg-gray-100"
                                 placeholder="Ej: jperez"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Rol en el Sistema</label>
+                            <label htmlFor="usuario-rol" className="block text-sm font-medium text-gray-700 mb-1">
+                                Rol en el Sistema
+                            </label>
                             <select
+                                id="usuario-rol"
                                 name="rol"
                                 value={formData.rol || "Operario"}
                                 onChange={handleChange}
-                                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white text-gray-900"
+                                disabled={isSaving}
+                                className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white text-gray-900 disabled:bg-gray-100"
                             >
                                 <option value="Administrador">Administrador</option>
                                 <option value="Operario">Operario</option>
@@ -121,45 +164,54 @@ export default function ModalUsuario({ isOpen, onClose, onSave, usuario }) {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Correo Electrónico</label>
+                        <label htmlFor="usuario-email" className="block text-sm font-medium text-gray-700 mb-1">
+                            Correo Electrónico
+                        </label>
                         <input
+                            id="usuario-email"
                             type="email"
                             name="email"
                             value={formData.email || ""}
                             onChange={handleChange}
                             required
-                            className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
+                            maxLength={100}
+                            disabled={isSaving}
+                            className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 disabled:bg-gray-100"
                             placeholder="jperez@lactar.com"
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label htmlFor="usuario-password" className="block text-sm font-medium text-gray-700 mb-1">
                             {usuario ? "Nueva Contraseña (Opcional)" : "Contraseña Provisoria"}
                         </label>
                         <input
+                            id="usuario-password"
                             type="password"
                             name="password"
                             value={formData.password || ""}
                             onChange={handleChange}
                             required={!usuario}
-                            className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
+                            minLength={6}
+                            maxLength={100}
+                            disabled={isSaving}
+                            className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 disabled:bg-gray-100"
                             placeholder={usuario ? "Dejar en blanco para no cambiar" : "Mínimo 6 caracteres"}
-                            minLength="6"
                         />
                     </div>
 
-                    <div className="flex items-center space-x-2 pt-2">
+                    <div className="flex items-start space-x-2 pt-2">
                         <input
                             type="checkbox"
                             name="activo"
                             id="activo"
-                            checked={formData.activo}
+                            checked={Boolean(formData.activo)}
                             onChange={handleChange}
-                            className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                            disabled={isSaving}
+                            className="mt-0.5 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                         />
                         <label htmlFor="activo" className="text-sm font-medium text-gray-700 cursor-pointer">
-                            Usuario Activo (Permite el inicio de sesión)
+                            Usuario Activo (permite el inicio de sesión; desmarcar aplica baja lógica)
                         </label>
                     </div>
 
@@ -167,19 +219,33 @@ export default function ModalUsuario({ isOpen, onClose, onSave, usuario }) {
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                            disabled={isSaving}
+                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50"
                         >
                             Cancelar
                         </button>
                         <button
                             type="submit"
-                            className="px-4 py-2 text-sm font-medium text-white bg-blue-700 border border-transparent rounded-lg hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors shadow-sm"
+                            disabled={isSaving}
+                            className="px-4 py-2 text-sm font-medium text-white bg-blue-700 border border-transparent rounded-lg hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors shadow-sm disabled:opacity-50"
                         >
-                            Guardar Usuario
+                            {isSaving ? "Guardando..." : "Guardar Usuario"}
                         </button>
                     </div>
                 </form>
             </div>
         </div>
+    );
+}
+
+export default function ModalUsuario({ isOpen, onClose, onSave, usuario }) {
+    if (!isOpen) return null;
+    return (
+        <ModalUsuarioContenido
+            key={usuario?.idUsuario ?? "nuevo"}
+            onClose={onClose}
+            onSave={onSave}
+            usuario={usuario}
+        />
     );
 }
