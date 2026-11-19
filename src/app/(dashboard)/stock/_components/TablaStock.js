@@ -34,35 +34,46 @@ export default function TablaStock({ lotes }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {lotes.map((lote) => (
-              <tr key={lote.codigoLote} className="hover:bg-gray-50">
-                <td className="whitespace-nowrap px-4 py-3 font-mono font-bold text-slate-900">
-                  {lote.codigoLote}
-                </td>
-                <td className="px-4 py-3 font-medium text-slate-900">
-                  {lote.producto}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-gray-600">
-                  {lote.fechaInicio
-                    ? new Date(lote.fechaInicio).toLocaleDateString("es-AR")
-                    : "—"}
-                </td>
-                <td className="px-4 py-3 text-slate-900">
-                  {lote.kilosDisponibles.toLocaleString("es-AR")} kg
-                </td>
-                <td className="px-4 py-3 text-slate-900">
-                  {lote.kilosReservados.toLocaleString("es-AR")} kg
-                </td>
-                <td className="px-4 py-3 font-bold text-slate-900">
-                  {lote.stockDisponible.toLocaleString("es-AR")} kg
-                </td>
-                <td className="px-4 py-3">
-                  <span className="whitespace-nowrap rounded-full bg-green-100 px-2 py-1 text-xs font-bold text-green-800">
-                    {lote.estado}
-                  </span>
+            {lotes.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={ENCABEZADOS.length}
+                  className="px-4 py-6 text-center text-gray-500"
+                >
+                  No hay lotes disponibles para el filtro seleccionado.
                 </td>
               </tr>
-            ))}
+            ) : (
+              lotes.map((lote) => (
+                <tr key={lote.codigoLote} className="hover:bg-gray-50">
+                  <td className="whitespace-nowrap px-4 py-3 font-mono font-bold text-slate-900">
+                    {lote.codigoLote}
+                  </td>
+                  <td className="px-4 py-3 font-medium text-slate-900">
+                    {lote.producto}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-gray-600">
+                    {lote.fechaInicio
+                      ? new Date(lote.fechaInicio).toLocaleDateString("es-AR")
+                      : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-slate-900">
+                    {lote.kilosDisponibles.toLocaleString("es-AR")} kg
+                  </td>
+                  <td className="px-4 py-3 text-slate-900">
+                    {lote.kilosReservados.toLocaleString("es-AR")} kg
+                  </td>
+                  <td className="px-4 py-3 font-bold text-slate-900">
+                    {lote.stockDisponible.toLocaleString("es-AR")} kg
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="whitespace-nowrap rounded-full bg-green-100 px-2 py-1 text-xs font-bold text-green-800">
+                      {lote.estado}
+                    </span>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

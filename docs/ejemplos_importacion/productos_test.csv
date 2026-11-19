@@ -1,5 +1,5 @@
-nombre,descripcion,codigoBarras,precioVenta,stockMinimo,activo
-Queso Cremoso 1KG,Queso de pasta blanda,7791234567890,8500.50,10,true
-Queso Sardo Horma,Queso de pasta dura ideal para rallar,7791234567891,15200.00,5,true
-Queso Tybo Barra,Queso de pasta semidura feteable,7791234567892,12500.00,15,true
-Muzzarella Cilindro,Queso muzzarella especial para pizzas,7791234567893,9800.00,20,false
+nombre,rendimientoEsperado,tiempoMaduracion,precioBase
+Provolone Hilado,9.2,45,9800.00
+Queso Azul,10.5,30,11200.00
+Gouda Semiduro,9.6,35,8900.00
+Parmesano Estacionado,7.8,120,13500.00

@@ -1,5 +1,5 @@
-razonSocial,cuit,email,telefono,direccion,localidad,provincia,activo
-Lácteos del Sur S.A.,30123456789,contacto@lacteosdelsur.com,01145678901,Av. Siempreviva 123,Quilmes,Buenos Aires,true
-Distribuidora Quesera SRL,30987654321,compras@distriquesera.com,01145678902,Calle Falsa 456,Morón,Buenos Aires,true
-Supermercados La Vaca,33112233449,proveedores@lavaca.com,03514445566,San Martín 789,Córdoba Capital,Córdoba,false
-Almacén Don Pepe,20445566778,donpepe@gmail.com,02215556677,Rivadavia 101,La Plata,Buenos Aires,true
+razonSocial,cuit,domicilio,telefono,email,activo,saldo
+Lácteos del Sur S.A.,30123456789,Av. Siempreviva 123 - Quilmes,01145678901,contacto@lacteosdelsur.com,true,0.00
+Distribuidora Quesera SRL,30987654321,Calle Falsa 456 - Morón,01145678902,compras@distriquesera.com,true,0.00
+Supermercados La Vaca,33112233449,San Martín 789 - Córdoba,03514445566,proveedores@lavaca.com,false,0.00
+Almacén Don Pepe,20445566778,Rivadavia 101 - La Plata,02215556677,donpepe@gmail.com,true,0.00

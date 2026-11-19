@@ -2,9 +2,31 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { canAccessRoute } from "@/utils/permissions";
 
-export default function Sidebar() {
+export default function Sidebar({ user }) {
   const pathname = usePathname();
+  const rol = user?.rol || "";
+
+  const mainItems = [
+    { href: "/", label: "Panel General", icon: HomeIcon },
+    { href: "/produccion", label: "Producción y Tinas", icon: FactoryIcon },
+    { href: "/stock", label: "Stock y Lotes", icon: CubeIcon },
+    { href: "/pedidos", label: "Pedidos y Ventas", icon: ShoppingCartIcon },
+    { href: "/clientes", label: "Gestión de Clientes", icon: UsersIcon },
+    { href: "/cobranzas", label: "Cobranzas", icon: CurrencyDollarIcon },
+  ].filter((item) => canAccessRoute(rol, item.href));
+
+  const adminItems = [
+    { href: "/reportes", label: "Reportes", icon: ChartBarIcon },
+    { href: "/usuarios", label: "Usuarios del Sistema", icon: UserGroupIcon },
+    { href: "/importacion", label: "Importar Datos", icon: UploadIcon },
+  ].filter((item) => canAccessRoute(rol, item.href));
+
+  const nombreCompleto = user
+    ? `${user.nombre || ""} ${user.apellido || ""}`.trim() || user.nombreUsuario
+    : "Usuario";
+  const inicial = (user?.nombre?.[0] || user?.nombreUsuario?.[0] || "U").toUpperCase();
 
   return (
     <aside className="w-64 bg-[#1e3a8a] text-white flex flex-col shadow-2xl z-10">
@@ -20,75 +42,47 @@ export default function Sidebar() {
       </div>
 
       {/* MENÚ DE NAVEGACIÓN */}
-      <nav className="flex-1 py-4 space-y-1 overflow-y-auto">
-        <NavItem
-          href="/"
-          currentPath={pathname}
-          label="Panel General"
-          icon={HomeIcon}
-        />
-        <NavItem
-          href="/produccion"
-          currentPath={pathname}
-          label="Producción y Tinas"
-          icon={FactoryIcon}
-        />
-        <NavItem
-          href="/stock"
-          currentPath={pathname}
-          label="Stock y Lotes"
-          icon={CubeIcon}
-        />
-        <NavItem
-          href="/pedidos"
-          currentPath={pathname}
-          label="Pedidos y Ventas"
-          icon={ShoppingCartIcon}
-        />
-        <NavItem
-          href="/clientes"
-          currentPath={pathname}
-          label="Gestión de Clientes"
-          icon={UsersIcon}
-        />
-        <NavItem
-          href="/cobranzas"
-          currentPath={pathname}
-          label="Cobranzas"
-          icon={CurrencyDollarIcon}
-        />
+      <nav className="flex-1 py-4 space-y-1 overflow-y-auto" aria-label="Menú principal">
+        {mainItems.map((item) => (
+          <NavItem
+            key={item.href}
+            href={item.href}
+            currentPath={pathname}
+            label={item.label}
+            icon={item.icon}
+          />
+        ))}
 
-        <div className="mt-4 mb-4 border-t border-blue-800"></div>
-
-        <NavItem
-          href="/reportes"
-          currentPath={pathname}
-          label="Reportes"
-          icon={ChartBarIcon}
-        />
-        <NavItem
-          href="/usuarios"
-          currentPath={pathname}
-          label="Usuarios del Sistema"
-          icon={UserGroupIcon}
-        />
-        <NavItem
-          href="/importacion"
-          currentPath={pathname}
-          label="Importar Datos"
-          icon={UploadIcon}
-        />
+        {adminItems.length > 0 && (
+          <>
+            <div className="mt-4 mb-4 border-t border-blue-800"></div>
+            {adminItems.map((item) => (
+              <NavItem
+                key={item.href}
+                href={item.href}
+                currentPath={pathname}
+                label={item.label}
+                icon={item.icon}
+              />
+            ))}
+          </>
+        )}
       </nav>
 
       {/* PERFIL USUARIO */}
       <div className="p-4 border-t border-blue-800 bg-blue-950">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-[#facc15] rounded-full flex items-center justify-center text-blue-900 font-bold text-lg shadow">
-            J
+          <div className="w-10 h-10 bg-[#facc15] rounded-full flex items-center justify-center text-blue-900 font-bold text-lg shadow shrink-0">
+            {inicial}
           </div>
-          <div className="text-sm">
-            <p className="text-white font-semibold">Joaquín Takara</p>
-            <p className="text-xs text-blue-300">Administrador</p>
+          <div className="text-sm min-w-0">
+            <p className="text-white font-semibold truncate" title={nombreCompleto}>
+              {nombreCompleto}
+            </p>
+            <p className="text-xs text-blue-300 truncate">
+              {rol || "Sin rol"}
+              {user?.esSistema ? " (Sistema)" : ""}
+            </p>
           </div>
         </div>
       </div>
@@ -96,9 +90,7 @@ export default function Sidebar() {
   );
 }
 
-// LÓGICA DE BOTÓN ACTIVO
 function NavItem({ href, currentPath, label, icon: Icon }) {
-  // Comprobamos si la ruta actual es exactamente igual al href
   const isActive = currentPath === href;
 
   return (
@@ -117,7 +109,6 @@ function NavItem({ href, currentPath, label, icon: Icon }) {
   );
 }
 
-// SVG Icons... (puedes pegarlos igual que antes)
 const HomeIcon = (props) => (
   <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path
