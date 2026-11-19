@@ -72,7 +72,6 @@ export default function FormularioPedido({
                 value={formulario.producto}
                 onChange={alCambiar}
                 className={CLASE_ENTRADA}
-                required
                 disabled={productos.length === 0 || enviando}
               >
                 {productos.length === 0 ? (
@@ -101,7 +100,6 @@ export default function FormularioPedido({
                 value={formulario.kilos}
                 onChange={alCambiar}
                 className={CLASE_ENTRADA}
-                required
                 disabled={productos.length === 0 || enviando}
               />
             </Campo>
@@ -170,7 +168,15 @@ export default function FormularioPedido({
           <button
             type="submit"
             disabled={
-              enviando || clientes.length === 0 || productos.length === 0
+              enviando ||
+              clientes.length === 0 ||
+              productos.length === 0 ||
+              detalles.length === 0
+            }
+            title={
+              detalles.length === 0
+                ? "Agregá al menos un producto al pedido para poder guardar"
+                : undefined
             }
             className="rounded-lg bg-lactarBlue px-5 py-2.5 font-bold text-white shadow-sm hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
