@@ -1,118 +1,172 @@
 "use client";
 
-import { useState } from "react";
-import TablaLotes from "./TablaLotes";
+import { useCallback, useEffect, useState } from "react";
+import {
+  createProduccion,
+  getProducciones,
+  getTinas,
+} from "@/services/produccion";
+import { getProductos } from "@/services/productos";
 import FormularioProduccion from "./FormularioProduccion";
+import ModalGestionLote from "./ModalGestionLote";
+import TablaLotes from "./TablaLotes";
+import TrazabilidadLote from "./TrazabilidadLote";
 
-function formatearFecha(fecha) {
-  return new Intl.DateTimeFormat("es-AR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(fecha);
-}
+export default function ClienteProduccion() {
+  const [tinas, setTinas] = useState([]);
+  const [productos, setProductos] = useState([]);
+  const [lotes, setLotes] = useState([]);
 
-function crearCodigoLote(producto, lotes) {
-  const dia = new Date().toISOString().slice(0, 10).replaceAll("-", "");
-  const codigoProducto = producto
-    .split(" ")
-    .map((palabra) => palabra[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-  const secuencia = String(
-    lotes.filter((lote) =>
-      lote.codigoLote.startsWith(`LT-${dia}-${codigoProducto}`),
-    ).length + 1,
-  ).padStart(3, "0");
-  return `LT-${dia}-${codigoProducto}-${secuencia}`;
-}
-
-export default function ClienteProduccion({ lotesIniciales, productos }) {
-  const [lotes, establecerLotes] = useState(lotesIniciales);
-  const [formulario, establecerFormulario] = useState({
-    tina: "Tina 1",
+  const [formulario, setFormulario] = useState({
+    idTina: "",
     litrosLeche: "",
-    producto: productos[0],
-    kilosObtenidos: "",
+    idProducto: "",
     observaciones: "",
   });
+
+  const [isLoadingCatalogos, setIsLoadingCatalogos] = useState(true);
+  const [isLoadingLotes, setIsLoadingLotes] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [error, setError] = useState("");
-  const [aviso, establecerAviso] = useState("");
-  const litrosLeche = Number(formulario.litrosLeche);
-  const kilos = Number(formulario.kilosObtenidos);
-  const rendimientoEstimado =
-    litrosLeche > 0 && kilos > 0
-      ? ((kilos / litrosLeche) * 100).toFixed(2)
-      : "-";
+  const [aviso, setAviso] = useState("");
+
+  const [codigoTrazabilidad, setCodigoTrazabilidad] = useState(null);
+  const [loteAGestionar, setLoteAGestionar] = useState(null);
+
+  const cargarLotes = useCallback(async (signal) => {
+    setIsLoadingLotes(true);
+    try {
+      const lista = await getProducciones({ signal });
+      setLotes(lista);
+    } catch (err) {
+      if (err?.name !== "AbortError") {
+        setError(
+          err?.message || "No se pudieron cargar los lotes de producción.",
+        );
+      }
+    } finally {
+      setIsLoadingLotes(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function cargarDatosIniciales() {
+      setIsLoadingCatalogos(true);
+      setIsLoadingLotes(true);
+      setError("");
+
+      try {
+        const [tinasData, productosData, lotesData] = await Promise.all([
+          getTinas({ signal: controller.signal }),
+          getProductos({ signal: controller.signal }),
+          getProducciones({ signal: controller.signal }),
+        ]);
+
+        setTinas(tinasData);
+        setProductos(productosData);
+        setLotes(lotesData);
+
+        setFormulario((actual) => ({
+          ...actual,
+          idTina: actual.idTina || String(tinasData[0]?.idTina ?? ""),
+          idProducto:
+            actual.idProducto || String(productosData[0]?.idProducto ?? ""),
+        }));
+      } catch (err) {
+        if (err?.name !== "AbortError") {
+          setError(
+            err?.message ||
+              "No se pudieron cargar los datos del módulo de producción.",
+          );
+        }
+      } finally {
+        setIsLoadingCatalogos(false);
+        setIsLoadingLotes(false);
+      }
+    }
+
+    cargarDatosIniciales();
+    return () => controller.abort();
+  }, []);
 
   function actualizarCampo(evento) {
-    establecerFormulario((actual) => ({
+    const { name, value } = evento.target;
+    setFormulario((actual) => ({
       ...actual,
-      [evento.target.name]: evento.target.value,
+      [name]: value,
     }));
     setError("");
-    establecerAviso("");
+    setAviso("");
   }
 
-  function gestionarEnvio(evento) {
+  async function gestionarEnvio(evento) {
     evento.preventDefault();
+    setError("");
+    setAviso("");
+
+    const idTina = Number(formulario.idTina);
+    const idProducto = Number(formulario.idProducto);
+    const litrosLeche = Number(formulario.litrosLeche);
+
+    if (!Number.isInteger(idTina) || idTina <= 0) {
+      setError("Seleccioná una tina válida.");
+      return;
+    }
+    if (!Number.isInteger(idProducto) || idProducto <= 0) {
+      setError("Seleccioná un producto válido.");
+      return;
+    }
+
+    const tinaSeleccionada = tinas.find((t) => t.idTina === idTina);
+    const capacidadMax = Number(tinaSeleccionada?.capacidadLitros ?? 5800);
+
     if (
       !Number.isFinite(litrosLeche) ||
       litrosLeche <= 0 ||
-      litrosLeche > 5800
+      litrosLeche > capacidadMax
     ) {
       setError(
-        "La leche ingresada debe ser mayor a 0 y no superar los 5.800 litros.",
+        `La leche ingresada debe ser mayor a 0 y no superar ${capacidadMax.toLocaleString("es-AR")} litros.`,
       );
       return;
     }
-    if (!Number.isFinite(kilos) || kilos <= 0) {
-      setError("Los kilos obtenidos deben ser mayores a 0.");
+
+    if (formulario.observaciones.trim().length > 255) {
+      setError("Las observaciones no pueden superar los 255 caracteres.");
       return;
     }
-    if (formulario.observaciones.length > 45) {
-      setError("Las observaciones no pueden superar los 45 caracteres.");
-      return;
+
+    setIsSubmitting(true);
+    try {
+      const loteCreado = await createProduccion({
+        idTina,
+        idProducto,
+        litrosLeche,
+        observaciones: formulario.observaciones.trim() || null,
+      });
+
+      setFormulario((actual) => ({
+        ...actual,
+        litrosLeche: "",
+        observaciones: "",
+      }));
+      setAviso(`Lote ${loteCreado.codigoLote} iniciado correctamente.`);
+      await cargarLotes();
+    } catch (err) {
+      setError(err?.message || "No se pudo iniciar la producción.");
+    } finally {
+      setIsSubmitting(false);
     }
-    const nuevoLote = {
-      codigoLote: crearCodigoLote(formulario.producto, lotes),
-      tina: formulario.tina,
-      fechaInicio: formatearFecha(new Date()),
-      fechaFin: "-",
-      producto: formulario.producto,
-      litrosLeche,
-      kilosObtenidos: kilos,
-      rendimientoReal: null,
-      estado: "En producción",
-      observaciones: formulario.observaciones,
-    };
-    establecerLotes((actual) => [nuevoLote, ...actual]);
-    establecerFormulario((actual) => ({
-      ...actual,
-      litrosLeche: "",
-      kilosObtenidos: "",
-      observaciones: "",
-    }));
-    establecerAviso(`Lote ${nuevoLote.codigoLote} iniciado correctamente.`);
   }
 
-  function cerrarLote(codigo) {
-    establecerLotes((actual) =>
-      actual.map((lote) => {
-        if (lote.codigoLote !== codigo || lote.estado !== "En producción")
-          return lote;
-        return {
-          ...lote,
-          fechaFin: formatearFecha(new Date()),
-          rendimientoReal: (
-            (lote.kilosObtenidos / lote.litrosLeche) *
-            100
-          ).toFixed(2),
-          estado: "En maduración",
-        };
-      }),
+  async function gestionarLoteActualizado(actualizado) {
+    setAviso(
+      `El lote ${actualizado.codigoLote} se actualizó al estado "${actualizado.estado_lote?.nombre ?? "actualizado"}".`,
     );
-    establecerAviso(`El lote ${codigo} fue cerrado y pasó a maduración.`);
+    await cargarLotes();
   }
 
   return (
@@ -122,25 +176,47 @@ export default function ClienteProduccion({ lotesIniciales, productos }) {
           <h2 className="text-xl font-bold text-lactarDark">
             Producción y Tinas
           </h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-600">
             Iniciá lotes, controlá la producción y cerrá cada proceso con su
             rinde real.
           </p>
         </div>
         <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800">
-          Capacidad por tina: 5.800 L
+          Capacidad máxima por tina: 5.800 L
         </span>
       </header>
+
       <FormularioProduccion
+        tinas={tinas}
         productos={productos}
         formulario={formulario}
-        rendimientoEstimado={rendimientoEstimado}
+        isSubmitting={isSubmitting}
+        isLoadingCatalogos={isLoadingCatalogos}
         error={error}
         aviso={aviso}
         alCambiar={actualizarCampo}
         alEnviar={gestionarEnvio}
       />
-      <TablaLotes lotes={lotes} alCerrarLote={cerrarLote} />
+
+      <TablaLotes
+        lotes={lotes}
+        isLoading={isLoadingLotes}
+        alVerTrazabilidad={(codigo) => setCodigoTrazabilidad(codigo)}
+        alGestionarLote={(lote) => setLoteAGestionar(lote)}
+      />
+
+      <TrazabilidadLote
+        isOpen={Boolean(codigoTrazabilidad)}
+        codigoLote={codigoTrazabilidad}
+        onClose={() => setCodigoTrazabilidad(null)}
+      />
+
+      <ModalGestionLote
+        isOpen={Boolean(loteAGestionar)}
+        lote={loteAGestionar}
+        onClose={() => setLoteAGestionar(null)}
+        onSaved={gestionarLoteActualizado}
+      />
     </div>
   );
 }
